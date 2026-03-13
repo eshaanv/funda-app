@@ -32,10 +32,12 @@ gcloud auth configure-docker "$REGION-docker.pkg.dev"
 make deploy
 ```
 
-If you want the service to be public and your account has IAM permission to set that policy:
+`make deploy` publishes the service publicly using Cloud Run's recommended `--no-invoker-iam-check` setting.
+
+If you want to keep the service private:
 
 ```bash
-make deploy CLOUD_RUN_FLAGS=--allow-unauthenticated
+make deploy CLOUD_RUN_FLAGS=
 ```
 
 ## Endpoints
