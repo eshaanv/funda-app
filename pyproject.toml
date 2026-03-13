@@ -1,0 +1,21 @@
+[project]
+name = "funda-app"
+version = "0.1.0"
+description = "FastAPI webhook service for Key.ai events"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.135.1",
+    "pydantic>=2.12.5",
+    "uvicorn>=0.41.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.0.2",
+    "ruff>=0.15.5",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
