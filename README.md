@@ -49,4 +49,4 @@ The Key.ai webhook endpoint accepts raw JSON bodies, routes all member events th
 
 ## Architecture
 
-See [docs/architecture.md](docs/architecture.md) for a Mermaid diagram of the repo structure and request flow.
+See [docs/architecture.md](docs/architecture.md) for a Mermaid diagram of the high-level webhook invocation flow.
