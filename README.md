@@ -47,7 +47,7 @@ make deploy CLOUD_RUN_FLAGS=
 - `GET /health`
 - `POST /webhooks/keyai/users`
 
-The Key.ai webhook endpoint accepts raw JSON bodies, routes all member events through the payload's `event` field, and returns `202 Accepted`. The `member.joined` event additionally schedules a background WhatsApp template send through the internal registry-backed sender.
+The Key.ai webhook endpoint accepts typed member event payloads, routes all member events through the payload's `event` field, and returns `202 Accepted`. The `member.joined` event additionally schedules a background enrichment step and then a WhatsApp template send.
 
 ## WhatsApp template dispatch
 

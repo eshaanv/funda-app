@@ -31,8 +31,13 @@ async def post_keyai_webhook(
         payload.member.id,
     )
     if payload.event == MemberWebhookEvent.MEMBER_JOINED:
+        logger.info(
+            "Queued joined member background tasks: member_id=%s event_id=%s",
+            payload.member.id,
+            payload.eventId,
+        )
         background_tasks.add_task(
-            webhook_service.dispatch_keyai_whatsapp_message,
+            webhook_service.dispatch_keyai_joined_member_tasks,
             payload,
         )
     return webhook_service.handle_keyai_webhook(payload=payload)

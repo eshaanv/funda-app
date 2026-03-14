@@ -84,7 +84,7 @@ def test_users_webhook_accepts_json_payload(
 
     monkeypatch.setattr(
         webhooks_api.webhook_service,
-        "dispatch_keyai_whatsapp_message",
+        "dispatch_keyai_joined_member_tasks",
         lambda webhook_payload: None,
     )
 
@@ -122,7 +122,7 @@ def test_keyai_webhook_calls_service(
     )
     monkeypatch.setattr(
         webhooks_api.webhook_service,
-        "dispatch_keyai_whatsapp_message",
+        "dispatch_keyai_joined_member_tasks",
         lambda webhook_payload: None,
     )
 
@@ -140,7 +140,7 @@ def test_keyai_webhook_calls_service(
     }
 
 
-def test_users_webhook_schedules_whatsapp_dispatch_for_joined_event(
+def test_users_webhook_schedules_joined_background_tasks(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -151,7 +151,7 @@ def test_users_webhook_schedules_whatsapp_dispatch_for_joined_event(
 
     monkeypatch.setattr(
         webhooks_api.webhook_service,
-        "dispatch_keyai_whatsapp_message",
+        "dispatch_keyai_joined_member_tasks",
         fake_dispatch,
     )
 
@@ -161,6 +161,28 @@ def test_users_webhook_schedules_whatsapp_dispatch_for_joined_event(
     payload = captured["payload"]
     assert isinstance(payload, MemberJoinedWebhookPayload)
     assert payload.member.id == "14b8d602-1eee-11f1-b904-0242ac14000a"
+
+
+def test_users_webhook_does_not_schedule_joined_tasks_for_non_joined_event(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    called = False
+
+    def fake_dispatch(payload: BaseMemberWebhookPayload) -> None:
+        nonlocal called
+        called = True
+
+    monkeypatch.setattr(
+        webhooks_api.webhook_service,
+        "dispatch_keyai_joined_member_tasks",
+        fake_dispatch,
+    )
+
+    response = client.post("/webhooks/keyai/users", json=_build_approved_payload())
+
+    assert response.status_code == 202
+    assert called is False
 
 
 def test_users_webhook_rejects_invalid_json(client: TestClient) -> None:

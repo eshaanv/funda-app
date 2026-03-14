@@ -2,6 +2,7 @@ import logging
 
 from funda_app.schemas.webhooks import (
     BaseMemberWebhookPayload,
+    MemberJoinedWebhookPayload,
     MemberWebhookPayload,
     MemberWebhookEvent,
     WebhookAcceptedResponse,
@@ -11,6 +12,7 @@ from funda_app.schemas.whatsapp import (
     WhatsAppTemplateName,
     WhatsAppTemplateSendRequest,
 )
+from funda_app.services.member_enrichment import dispatch_member_joined_enrichment
 from funda_app.services.whatsapp import send_whatsapp_template_message
 
 logger = logging.getLogger(__name__)
@@ -71,6 +73,17 @@ def build_keyai_whatsapp_send_request(
             "first_name": payload.member.firstName,
         },
     )
+
+
+def dispatch_keyai_joined_member_tasks(payload: MemberJoinedWebhookPayload) -> None:
+    """
+    Runs joined-member background tasks in the intended order.
+
+    Args:
+        payload (MemberJoinedWebhookPayload): Joined member webhook payload.
+    """
+    dispatch_member_joined_enrichment(payload)
+    dispatch_keyai_whatsapp_message(payload)
 
 
 def dispatch_keyai_whatsapp_message(payload: BaseMemberWebhookPayload) -> None:
