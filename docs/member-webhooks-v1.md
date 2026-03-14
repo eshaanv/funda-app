@@ -6,6 +6,12 @@
 
 **Payload includes:** Full member info + all onboarding Q&A answers
 
+**Current Funda handling:** Return `202 Accepted`, then queue background member
+enrichment followed by WhatsApp template delivery.
+
+**Validation note:** `questions[]` is required for `member.joined`. Funda rejects
+joined payloads without it.
+
 ``` json
 {
   "event": "member.joined",
@@ -24,6 +30,9 @@
 
 **Payload includes:** Member info + status change only
 
+**Current Funda handling:** Return `202 Accepted` only. No background work is
+currently scheduled.
+
 ``` json
 {
   "event": "member.approved",
@@ -36,6 +45,9 @@
 ## member.rejected
 
 **Trigger:** Admin rejects a pending member
+
+**Current Funda handling:** Return `202 Accepted` only. No background work is
+currently scheduled.
 
 ``` json
 {
@@ -50,6 +62,9 @@
 
 **Trigger:** Admin manually removes a member
 
+**Current Funda handling:** Return `202 Accepted` only. No background work is
+currently scheduled.
+
 ``` json
 {
   "event": "member.removed",
@@ -63,6 +78,9 @@
 
 **Trigger:** Member requested to leave and scheduler window expired\
 (10 minutes in dev / 72 hours in production)
+
+**Current Funda handling:** Return `202 Accepted` only. No background work is
+currently scheduled.
 
 ``` json
 {
@@ -102,3 +120,5 @@
 
 **Note:** `questions[]` is included **only in `member.joined`**.\
 All other events contain only the common fields listed above.
+
+For the current high-level runtime flow, see [architecture.md](architecture.md).

@@ -1,20 +1,28 @@
 # High-Level Invocation Flow
 
-This diagram intentionally stays high level. It shows the one public webhook endpoint and the message flow that should happen on each invocation.
+This diagram intentionally stays high level. It shows the one public webhook
+endpoint, the immediate `202` acknowledgement returned for every event, and the
+extra background flow used for `member.joined`.
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant KeyAI as Key.ai
     participant Endpoint as Funda App<br/>POST /webhooks/keyai/users
-    participant Registry as WhatsApp template registry
+    participant Tasks as Background tasks
+    participant Gemini as Gemini enrichment
     participant WABA as Facebook + WhatsApp Business App
     participant Recipient as WhatsApp recipient
 
-    Note over KeyAI,Recipient: Every webhook invocation follows this flow.
-    KeyAI->>Endpoint: Send user webhook payload
+    Note over KeyAI,Recipient: Every event is acknowledged immediately; only member.joined enters the background path below.
+    KeyAI->>Endpoint: Send typed member webhook payload
     Endpoint-->>KeyAI: Return 202 Accepted
-    Endpoint->>Registry: Queue background WhatsApp dispatch for member.joined
-    Registry->>WABA: Send approved WhatsApp template with personalized fields
-    WABA-->>Recipient: Deliver automated WhatsApp message
+    opt member.joined only
+        Endpoint->>Tasks: Queue joined-member background flow
+        Tasks->>Gemini: Generate enrichment summary when LinkedIn URL is available
+        Gemini-->>Tasks: Summary or no response
+        Note over Tasks,WABA: WhatsApp send still runs if enrichment is skipped or fails.
+        Tasks->>WABA: Send funda_signup_confirmation template
+        WABA-->>Recipient: Deliver automated WhatsApp message
+    end
 ```
