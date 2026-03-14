@@ -35,7 +35,10 @@ make test-local-webhook
 `make test-local-webhook` builds the image if needed, starts the container if it
 is not already running, waits for `/health`, then posts the `member.joined`
 functional test payload. The container stays up afterward so you can inspect
-runtime logs.
+runtime logs. The local container is started with `--env-file .env`, so your
+`.env` file must contain the required integration settings. If local ADC
+credentials exist at `~/.config/gcloud/application_default_credentials.json`,
+the Make target also mounts them into the container for Gemini enrichment.
 
 To tail the local container logs:
 
@@ -73,6 +76,18 @@ You can override the container name and published port if needed:
 
 ```bash
 make run-local-container LOCAL_CONTAINER_NAME=funda-app-local LOCAL_CONTAINER_PORT=8080
+```
+
+If your env file lives elsewhere, override it explicitly:
+
+```bash
+make run-local-container LOCAL_CONTAINER_ENV_FILE=.env
+```
+
+If your ADC file lives elsewhere, override that path explicitly:
+
+```bash
+make run-local-container ADC_SRC="$HOME/.config/gcloud/application_default_credentials.json"
 ```
 
 ## Deploy to Cloud Run
