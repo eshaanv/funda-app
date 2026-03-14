@@ -3,7 +3,7 @@ from typing import Any, Literal
 from pydantic import BaseModel
 
 JSONValue = dict[str, Any] | list[Any] | str | int | float | bool | None
-KeyAIEventName = Literal["keyai.users", "keyai.user_status"]
+KeyAIEventName = str
 
 
 class KeyAIWebhookEvent(BaseModel):

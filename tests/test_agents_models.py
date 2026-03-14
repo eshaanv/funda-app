@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 from google.genai.types import GenerateContentConfig
 
-from agents import models
+from funda_app.agents import models
 
 
 def test_invoke_gemini_returns_response_text(

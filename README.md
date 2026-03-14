@@ -44,6 +44,9 @@ make deploy CLOUD_RUN_FLAGS=
 
 - `GET /health`
 - `POST /webhooks/keyai/users`
-- `POST /webhooks/keyai/users/{user_id}/status`
 
-Both webhook endpoints currently accept raw JSON bodies and return `202 Accepted`. The WhatsApp send path is a placeholder service boundary that can be replaced later once the provider details are finalized.
+The Key.ai webhook endpoint accepts raw JSON bodies, routes all member events through the payload's `event` field, and returns `202 Accepted`. The WhatsApp send path is a placeholder service boundary that can be replaced later once the provider details are finalized.
+
+## Architecture
+
+See [docs/architecture.md](docs/architecture.md) for a Mermaid diagram of the repo structure and request flow.
