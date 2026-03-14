@@ -82,7 +82,7 @@ def dispatch_keyai_joined_member_tasks(payload: MemberJoinedWebhookPayload) -> N
     Args:
         payload (MemberJoinedWebhookPayload): Joined member webhook payload.
     """
-    dispatch_member_joined_enrichment(payload)
+    # dispatch_member_joined_enrichment(payload)
     dispatch_keyai_whatsapp_message(payload)
 
 

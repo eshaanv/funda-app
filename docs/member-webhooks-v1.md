@@ -122,3 +122,6 @@ currently scheduled.
 All other events contain only the common fields listed above.
 
 For the current high-level runtime flow, see [architecture.md](architecture.md).
+For the current Funda member-facing WhatsApp template standards for these
+events, see
+[member-webhook-template-standards.md](member-webhook-template-standards.md).

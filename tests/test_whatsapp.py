@@ -3,6 +3,7 @@ from pydantic import ValidationError
 
 from funda_app.schemas.whatsapp import WhatsAppTemplateName, WhatsAppTemplateSendRequest
 from funda_app.services import whatsapp
+from funda_app.services.whatsapp_templates import get_whatsapp_template
 from funda_app.settings import AppSettings
 
 
@@ -109,3 +110,33 @@ def test_send_request_rejects_unknown_template_name() -> None:
             to="19256400611",
             template_name="unknown_template",
         )
+
+
+@pytest.mark.parametrize(
+    ("template_name", "expected_name"),
+    [
+        (
+            WhatsAppTemplateName.FUNDA_SIGNUP_CONFIRMATION,
+            "funda_signup_confirmation",
+        ),
+        (
+            WhatsAppTemplateName.FUNDA_MEMBERSHIP_APPROVED,
+            "funda_membership_approved",
+        ),
+        (
+            WhatsAppTemplateName.FUNDA_MEMBERSHIP_REJECTED,
+            "funda_membership_rejected",
+        ),
+    ],
+)
+def test_get_whatsapp_template_returns_registered_template(
+    template_name: WhatsAppTemplateName,
+    expected_name: str,
+) -> None:
+    template = get_whatsapp_template(template_name)
+
+    assert template.name == template_name
+    assert template.language == "en"
+    assert template.category == "UTILITY"
+    assert template.body_parameter_names == ("first_name",)
+    assert template.name.value == expected_name

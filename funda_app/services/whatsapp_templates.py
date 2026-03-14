@@ -7,8 +7,24 @@ FUNDA_SIGNUP_CONFIRMATION_TEMPLATE = WhatsAppTemplateDefinition(
     body_parameter_names=("first_name",),
 )
 
+FUNDA_MEMBERSHIP_APPROVED_TEMPLATE = WhatsAppTemplateDefinition(
+    name=WhatsAppTemplateName.FUNDA_MEMBERSHIP_APPROVED,
+    language="en",
+    category="UTILITY",
+    body_parameter_names=("first_name",),
+)
+
+FUNDA_MEMBERSHIP_REJECTED_TEMPLATE = WhatsAppTemplateDefinition(
+    name=WhatsAppTemplateName.FUNDA_MEMBERSHIP_REJECTED,
+    language="en",
+    category="UTILITY",
+    body_parameter_names=("first_name",),
+)
+
 WHATSAPP_TEMPLATE_REGISTRY: dict[WhatsAppTemplateName, WhatsAppTemplateDefinition] = {
     FUNDA_SIGNUP_CONFIRMATION_TEMPLATE.name: FUNDA_SIGNUP_CONFIRMATION_TEMPLATE,
+    FUNDA_MEMBERSHIP_APPROVED_TEMPLATE.name: FUNDA_MEMBERSHIP_APPROVED_TEMPLATE,
+    FUNDA_MEMBERSHIP_REJECTED_TEMPLATE.name: FUNDA_MEMBERSHIP_REJECTED_TEMPLATE,
 }
 
 
