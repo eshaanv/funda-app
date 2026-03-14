@@ -1,9 +1,16 @@
-from fastapi import APIRouter, Body, status
+import logging
 
-from funda_app.schemas.webhooks import JSONValue, WebhookAcceptedResponse
+from fastapi import APIRouter, BackgroundTasks, Body, status
+
+from funda_app.schemas.webhooks import (
+    MemberWebhookEvent,
+    MemberWebhookPayload,
+    WebhookAcceptedResponse,
+)
 from funda_app.services import keyai_webhooks as webhook_service
 
 router = APIRouter(prefix="/webhooks/keyai", tags=["webhooks"])
+logger = logging.getLogger(__name__)
 
 
 @router.post(
@@ -12,6 +19,20 @@ router = APIRouter(prefix="/webhooks/keyai", tags=["webhooks"])
     status_code=status.HTTP_202_ACCEPTED,
 )
 async def post_keyai_webhook(
-    payload: JSONValue = Body(..., description="Raw JSON payload sent by Key.ai."),
+    background_tasks: BackgroundTasks,
+    payload: MemberWebhookPayload = Body(
+        ...,
+        description="Member webhook payload sent by Key.ai.",
+    ),
 ) -> WebhookAcceptedResponse:
+    logger.info(
+        "Received Key.ai webhook: event=%s member_id=%s",
+        payload.event,
+        payload.member.id,
+    )
+    if payload.event == MemberWebhookEvent.MEMBER_JOINED:
+        background_tasks.add_task(
+            webhook_service.dispatch_keyai_whatsapp_message,
+            payload,
+        )
     return webhook_service.handle_keyai_webhook(payload=payload)

@@ -6,6 +6,8 @@ Minimal FastAPI service for receiving Key.ai webhook calls.
 
 ```bash
 uv sync
+export WHATSAPP_ACCESS_TOKEN=your-token
+export WHATSAPP_PHONE_NUMBER_ID=your-phone-number-id
 uv run uvicorn funda_app.main:app --reload
 ```
 
@@ -45,7 +47,21 @@ make deploy CLOUD_RUN_FLAGS=
 - `GET /health`
 - `POST /webhooks/keyai/users`
 
-The Key.ai webhook endpoint accepts raw JSON bodies, routes all member events through the payload's `event` field, and returns `202 Accepted`. The WhatsApp send path is a placeholder service boundary that can be replaced later once the provider details are finalized.
+The Key.ai webhook endpoint accepts raw JSON bodies, routes all member events through the payload's `event` field, and returns `202 Accepted`. The `member.joined` event additionally schedules a background WhatsApp template send through the internal registry-backed sender.
+
+## WhatsApp template dispatch
+
+`member.joined` now schedules an in-process background task that sends the
+approved `funda_signup_confirmation` WhatsApp template through Meta's Graph API.
+The template registry lives in
+[`funda_app/services/whatsapp_templates.py`](funda_app/services/whatsapp_templates.py),
+and the sender expects these environment variables:
+
+- `WHATSAPP_ACCESS_TOKEN`
+- `WHATSAPP_PHONE_NUMBER_ID`
+- `WHATSAPP_API_VERSION` (optional, defaults to `v25.0`)
+- `WHATSAPP_BASE_URL` (optional, defaults to `https://graph.facebook.com`)
+- `WHATSAPP_TIMEOUT_SECONDS` (optional, defaults to `10`)
 
 ## Architecture
 

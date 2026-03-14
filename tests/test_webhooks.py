@@ -1,14 +1,22 @@
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from funda_app.api import webhooks as webhooks_api
-from funda_app.schemas.webhooks import WebhookAcceptedResponse, WhatsAppDispatchResult
+from funda_app.schemas.whatsapp import WhatsAppDispatchResult, WhatsAppTemplateName
+from funda_app.schemas.webhooks import (
+    BaseMemberWebhookPayload,
+    MemberApprovedWebhookPayload,
+    MemberJoinedWebhookPayload,
+    MemberWebhookEvent,
+    WebhookAcceptedResponse,
+)
 from funda_app.services import keyai_webhooks
 
 
-def test_users_webhook_accepts_json_payload(client: TestClient) -> None:
-    payload = {
-        "event": "member.status.changed",
+def _build_joined_payload() -> dict[str, object]:
+    return {
+        "event": "member.joined",
         "member": {
             "id": "14b8d602-1eee-11f1-b904-0242ac14000a",
             "email": "rohan+1@key.ai",
@@ -39,21 +47,61 @@ def test_users_webhook_accepts_json_payload(client: TestClient) -> None:
         "occurredAt": "2026-03-13T15:05:32.436Z",
     }
 
+
+def _build_approved_payload() -> dict[str, object]:
+    return {
+        "event": "member.approved",
+        "member": {
+            "id": "user-456",
+            "email": "rohan+1@key.ai",
+            "phone": "8511152215",
+            "fullName": "Rohan Jain",
+            "lastName": "Jain",
+            "firstName": "Rohan",
+            "companyName": None,
+            "linkedinUrl": None,
+            "companyStage": None,
+        },
+        "status": {
+            "new": "APPROVED",
+            "old": "PENDING",
+        },
+        "eventId": "08964b2f-d41e-4ae4-aa9f-bfb87b48c94f",
+        "version": 1,
+        "community": {
+            "id": "b382558c-1ebd-11f1-b36c-0242ac14000a",
+            "name": "funda",
+        },
+        "occurredAt": "2026-03-13T15:05:32.436Z",
+    }
+
+
+def test_users_webhook_accepts_json_payload(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = _build_joined_payload()
+
+    monkeypatch.setattr(
+        webhooks_api.webhook_service,
+        "dispatch_keyai_whatsapp_message",
+        lambda webhook_payload: None,
+    )
+
     response = client.post("/webhooks/keyai/users", json=payload)
 
     assert response.status_code == 202
     assert response.json() == {
         "status": "accepted",
-        "event": "member.status.changed",
+        "event": "member.joined",
         "user_id": "14b8d602-1eee-11f1-b904-0242ac14000a",
     }
 
 
-def test_users_webhook_accepts_array_payload(client: TestClient) -> None:
+def test_users_webhook_rejects_array_payload(client: TestClient) -> None:
     response = client.post("/webhooks/keyai/users", json=["raw", "payload"])
 
-    assert response.status_code == 202
-    assert response.json()["event"] == "keyai.webhook.received"
+    assert response.status_code == 422
 
 
 def test_keyai_webhook_calls_service(
@@ -62,30 +110,57 @@ def test_keyai_webhook_calls_service(
 ) -> None:
     captured: dict[str, object] = {}
 
-    def fake_handler(payload: object) -> WebhookAcceptedResponse:
+    def fake_handler(payload: BaseMemberWebhookPayload) -> WebhookAcceptedResponse:
         captured["payload"] = payload
         return WebhookAcceptedResponse(
-            event="member.status.changed",
+            event=MemberWebhookEvent.MEMBER_JOINED,
             user_id="user-123",
         )
 
     monkeypatch.setattr(
         webhooks_api.webhook_service, "handle_keyai_webhook", fake_handler
     )
-
-    response = client.post(
-        "/webhooks/keyai/users", json={"event": "member.status.changed"}
+    monkeypatch.setattr(
+        webhooks_api.webhook_service,
+        "dispatch_keyai_whatsapp_message",
+        lambda webhook_payload: None,
     )
 
+    response = client.post("/webhooks/keyai/users", json=_build_joined_payload())
+
     assert response.status_code == 202
-    assert captured == {
-        "payload": {"event": "member.status.changed"},
-    }
+    payload = captured["payload"]
+    assert isinstance(payload, MemberJoinedWebhookPayload)
+    assert payload.event == MemberWebhookEvent.MEMBER_JOINED
+    assert payload.member.id == "14b8d602-1eee-11f1-b904-0242ac14000a"
     assert response.json() == {
         "status": "accepted",
-        "event": "member.status.changed",
+        "event": "member.joined",
         "user_id": "user-123",
     }
+
+
+def test_users_webhook_schedules_whatsapp_dispatch_for_joined_event(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_dispatch(payload: BaseMemberWebhookPayload) -> None:
+        captured["payload"] = payload
+
+    monkeypatch.setattr(
+        webhooks_api.webhook_service,
+        "dispatch_keyai_whatsapp_message",
+        fake_dispatch,
+    )
+
+    response = client.post("/webhooks/keyai/users", json=_build_joined_payload())
+
+    assert response.status_code == 202
+    payload = captured["payload"]
+    assert isinstance(payload, MemberJoinedWebhookPayload)
+    assert payload.member.id == "14b8d602-1eee-11f1-b904-0242ac14000a"
 
 
 def test_users_webhook_rejects_invalid_json(client: TestClient) -> None:
@@ -98,72 +173,72 @@ def test_users_webhook_rejects_invalid_json(client: TestClient) -> None:
     assert response.status_code == 422
 
 
-def test_service_forwards_event_to_whatsapp(
+def test_users_webhook_rejects_joined_payload_without_questions(
+    client: TestClient,
+) -> None:
+    payload = _build_joined_payload()
+    payload.pop("questions")
+
+    response = client.post("/webhooks/keyai/users", json=payload)
+
+    assert response.status_code == 422
+
+
+def test_service_builds_joined_whatsapp_request() -> None:
+    send_request = keyai_webhooks.build_keyai_whatsapp_send_request(
+        payload=MemberJoinedWebhookPayload.model_validate(_build_joined_payload()),
+    )
+
+    assert send_request is not None
+    assert send_request.to == "8511152215"
+    assert send_request.template_name == WhatsAppTemplateName.FUNDA_SIGNUP_CONFIRMATION
+    assert send_request.template_metadata == {"first_name": "Rohan"}
+
+
+def test_service_skips_non_joined_whatsapp_dispatch_request() -> None:
+    send_request = keyai_webhooks.build_keyai_whatsapp_send_request(
+        payload=MemberApprovedWebhookPayload.model_validate(_build_approved_payload()),
+    )
+
+    assert send_request is None
+
+
+def test_service_dispatches_joined_event_to_whatsapp(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, object] = {}
 
-    def fake_sender(event: keyai_webhooks.KeyAIWebhookEvent) -> WhatsAppDispatchResult:
-        captured["event"] = event
-        return WhatsAppDispatchResult(detail="placeholder")
+    def fake_sender(send_request) -> WhatsAppDispatchResult:
+        captured["send_request"] = send_request
+        return WhatsAppDispatchResult(
+            status="sent",
+            detail="accepted",
+            message_id="wamid.123",
+        )
 
-    monkeypatch.setattr(keyai_webhooks, "send_keyai_whatsapp_message", fake_sender)
+    monkeypatch.setattr(keyai_webhooks, "send_whatsapp_template_message", fake_sender)
 
-    response = keyai_webhooks.handle_keyai_webhook(
-        payload={
-            "event": "member.status.changed",
-            "member": {"id": "user-456"},
-            "status": {"new": "APPROVED", "old": "PENDING"},
-        },
+    keyai_webhooks.dispatch_keyai_whatsapp_message(
+        payload=MemberJoinedWebhookPayload.model_validate(_build_joined_payload()),
     )
 
-    event = captured["event"]
+    send_request = captured["send_request"]
 
-    assert isinstance(event, keyai_webhooks.KeyAIWebhookEvent)
-    assert event.event == "member.status.changed"
-    assert event.user_id == "user-456"
-    assert event.payload == {
-        "event": "member.status.changed",
-        "member": {"id": "user-456"},
-        "status": {"new": "APPROVED", "old": "PENDING"},
-    }
-    assert response == WebhookAcceptedResponse(
-        event="member.status.changed",
-        user_id="user-456",
-    )
+    assert send_request.template_name == WhatsAppTemplateName.FUNDA_SIGNUP_CONFIRMATION
+    assert send_request.template_metadata == {"first_name": "Rohan"}
 
 
-def test_keyai_service_extracts_member_id_from_payload(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    captured: dict[str, object] = {}
+def test_joined_webhook_model_requires_questions() -> None:
+    payload = _build_joined_payload()
+    payload.pop("questions")
 
-    def fake_sender(event: keyai_webhooks.KeyAIWebhookEvent) -> WhatsAppDispatchResult:
-        captured["event"] = event
-        return WhatsAppDispatchResult(detail="placeholder")
+    with pytest.raises(ValidationError):
+        MemberJoinedWebhookPayload.model_validate(payload)
 
-    monkeypatch.setattr(keyai_webhooks, "send_keyai_whatsapp_message", fake_sender)
 
-    response = keyai_webhooks.handle_keyai_webhook(
-        payload={
-            "event": "member.status.changed",
-            "member": {
-                "id": "member-789",
-                "email": "rohan+1@key.ai",
-            },
-            "status": {
-                "new": "PENDING",
-                "old": None,
-            },
-        }
-    )
+def test_approved_webhook_model_rejects_invalid_status_transition() -> None:
+    payload = _build_approved_payload()
+    payload["status"] = {"old": "APPROVED", "new": "APPROVED"}
 
-    event = captured["event"]
-
-    assert isinstance(event, keyai_webhooks.KeyAIWebhookEvent)
-    assert event.event == "member.status.changed"
-    assert event.user_id == "member-789"
-    assert response == WebhookAcceptedResponse(
-        event="member.status.changed",
-        user_id="member-789",
-    )
+    with pytest.raises(ValidationError):
+        MemberApprovedWebhookPayload.model_validate(payload)

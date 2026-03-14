@@ -12,3 +12,5 @@ wheels/
 # Local environment
 .env
 .envrc
+.ruff_cache/
+.pytest_cache/

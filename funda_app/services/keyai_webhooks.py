@@ -1,75 +1,127 @@
+import logging
+
 from funda_app.schemas.webhooks import (
-    JSONValue,
-    KeyAIWebhookEvent,
+    BaseMemberWebhookPayload,
+    MemberWebhookPayload,
+    MemberWebhookEvent,
     WebhookAcceptedResponse,
 )
-from funda_app.services.whatsapp import send_keyai_whatsapp_message
+from funda_app.schemas.whatsapp import (
+    WhatsAppDispatchResult,
+    WhatsAppTemplateName,
+    WhatsAppTemplateSendRequest,
+)
+from funda_app.services.whatsapp import send_whatsapp_template_message
 
-DEFAULT_KEYAI_EVENT = "keyai.webhook.received"
+logger = logging.getLogger(__name__)
 
 
-def handle_keyai_webhook(payload: JSONValue) -> WebhookAcceptedResponse:
+def handle_keyai_webhook(payload: MemberWebhookPayload) -> WebhookAcceptedResponse:
     """
     Handles all webhook payloads received from Key.ai.
 
     Args:
-        payload (JSONValue): The raw JSON payload sent by Key.ai.
+        payload (MemberWebhookPayload): Validated webhook payload sent by Key.ai.
 
     Returns:
         WebhookAcceptedResponse: The acknowledgment returned to the webhook caller.
     """
-    event = KeyAIWebhookEvent(
-        event=_extract_event_name(payload),
-        payload=payload,
-        user_id=_extract_member_id(payload),
+    return _process_event(payload)
+
+
+def _process_event(payload: BaseMemberWebhookPayload) -> WebhookAcceptedResponse:
+    """
+    Processes a validated Key.ai member webhook payload.
+
+    Args:
+        payload (BaseMemberWebhookPayload): Validated Key.ai webhook payload.
+
+    Returns:
+        WebhookAcceptedResponse: The acknowledgment returned to the webhook caller.
+    """
+    return WebhookAcceptedResponse(
+        event=payload.event,
+        user_id=payload.member.id,
     )
-    return _process_event(event)
 
 
-def _process_event(event: KeyAIWebhookEvent) -> WebhookAcceptedResponse:
-    send_keyai_whatsapp_message(event)
-    return WebhookAcceptedResponse(event=event.event, user_id=event.user_id)
-
-
-def _extract_event_name(payload: JSONValue) -> str:
+def build_keyai_whatsapp_send_request(
+    payload: BaseMemberWebhookPayload,
+) -> WhatsAppTemplateSendRequest | None:
     """
-    Extracts the Key.ai event name from a webhook payload.
+    Builds a WhatsApp template send request for a supported Key.ai event.
 
     Args:
-        payload (JSONValue): Raw webhook payload received from Key.ai.
+        payload (BaseMemberWebhookPayload): Validated Key.ai webhook payload.
 
     Returns:
-        str: Event name when present, otherwise a fallback value.
+        WhatsAppTemplateSendRequest | None: Template send request for supported
+            events, otherwise None.
     """
-    if not isinstance(payload, dict):
-        return DEFAULT_KEYAI_EVENT
+    if payload.event != MemberWebhookEvent.MEMBER_JOINED:
+        return None
 
-    event_name = payload.get("event")
-    if not isinstance(event_name, str) or not event_name:
-        return DEFAULT_KEYAI_EVENT
+    if not payload.member.phone.strip():
+        return None
 
-    return event_name
+    return WhatsAppTemplateSendRequest(
+        to=payload.member.phone,
+        template_name=WhatsAppTemplateName.FUNDA_SIGNUP_CONFIRMATION,
+        template_metadata={
+            "first_name": payload.member.firstName,
+        },
+    )
 
 
-def _extract_member_id(payload: JSONValue) -> str | None:
+def dispatch_keyai_whatsapp_message(payload: BaseMemberWebhookPayload) -> None:
     """
-    Extracts a Key.ai member identifier from a webhook payload.
+    Dispatches a Key.ai-triggered WhatsApp template message.
 
     Args:
-        payload (JSONValue): Raw webhook payload received from Key.ai.
-
-    Returns:
-        str | None: Member identifier when present, otherwise None.
+        payload (BaseMemberWebhookPayload): Validated Key.ai webhook payload.
     """
-    if not isinstance(payload, dict):
-        return None
+    send_request = build_keyai_whatsapp_send_request(payload)
 
-    member = payload.get("member")
-    if not isinstance(member, dict):
-        return None
+    if send_request is None:
+        logger.info(
+            "Skipping WhatsApp dispatch: event=%s member_id=%s",
+            payload.event,
+            payload.member.id,
+        )
+        return
 
-    member_id = member.get("id")
-    if not isinstance(member_id, str) or not member_id:
-        return None
+    try:
+        result = send_whatsapp_template_message(send_request)
+    except Exception:
+        logger.exception(
+            "WhatsApp dispatch failed: event=%s member_id=%s template=%s",
+            payload.event,
+            payload.member.id,
+            send_request.template_name,
+        )
+        return
 
-    return member_id
+    _log_dispatch_result(payload, send_request, result)
+
+
+def _log_dispatch_result(
+    payload: BaseMemberWebhookPayload,
+    send_request: WhatsAppTemplateSendRequest,
+    result: WhatsAppDispatchResult,
+) -> None:
+    """
+    Logs the result of a WhatsApp dispatch attempt.
+
+    Args:
+        payload (BaseMemberWebhookPayload): Source Key.ai webhook payload.
+        send_request (WhatsAppTemplateSendRequest): Outbound send request.
+        result (WhatsAppDispatchResult): Provider dispatch result.
+    """
+    logger.info(
+        "WhatsApp dispatch completed: event=%s member_id=%s template=%s status=%s message_id=%s",
+        payload.event,
+        payload.member.id,
+        send_request.template_name,
+        result.status,
+        result.message_id,
+    )
