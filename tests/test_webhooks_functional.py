@@ -27,11 +27,11 @@ def test_member_joined_local_fastapi_webhook() -> None:
                     "id": "14b8d602-1eee-11f1-b904-0242ac14000a",
                     "email": "rohan+1@key.ai",
                     "phone": "9256400611",
-                    "fullName": "Rohan Jain",
-                    "lastName": "Jain",
-                    "firstName": "Rohan",
+                    "fullName": "Eshaan Vipani",
+                    "lastName": "Vipani",
+                    "firstName": "Eshaan",
                     "companyName": None,
-                    "linkedinUrl": None,
+                    "linkedinUrl": "https://www.linkedin.com/in/eshaan-vipani/",
                     "companyStage": None,
                 },
                 "status": {
@@ -46,11 +46,11 @@ def test_member_joined_local_fastapi_webhook() -> None:
                 },
                 "questions": [
                     {
-                        "answer": "https://www.linkedin.com/in/rohan-jain",
+                        "answer": "https://www.linkedin.com/in/eshaan-vipani/",
                         "question": "What is your linked-in url?",
                     },
                     {
-                        "answer": "Acme AI",
+                        "answer": "Example Corp",
                         "question": "What is your company name?",
                     },
                     {

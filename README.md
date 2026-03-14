@@ -24,16 +24,28 @@ uv run ruff check .
 
 ## Local webhook functional test
 
-Start the app locally, then run:
+Run the webhook functional test against the detached local container:
 
 ```bash
 make test-local-webhook
 ```
 
-You can override the target app URL if needed:
+`make test-local-webhook` builds the image if needed, starts the container if it
+is not already running, waits for `/health`, then posts the `member.joined`
+functional test payload. The container stays up afterward so you can inspect
+runtime logs.
+
+To tail the local container logs:
 
 ```bash
-make test-local-webhook LOCAL_WEBHOOK_BASE_URL=http://127.0.0.1:8000
+make logs-local-container
+```
+
+You can override the target app URL or container settings if needed:
+
+```bash
+make test-local-webhook LOCAL_WEBHOOK_BASE_URL=http://127.0.0.1:8080
+make run-local-container LOCAL_CONTAINER_NAME=funda-app-local LOCAL_CONTAINER_PORT=8080
 ```
 
 ## Run with Docker
@@ -41,6 +53,24 @@ make test-local-webhook LOCAL_WEBHOOK_BASE_URL=http://127.0.0.1:8000
 ```bash
 docker build -t funda-app .
 docker run --rm -p 8080:8080 funda-app
+```
+
+Or use the Make target to build and run the repo image detached:
+
+```bash
+make run-local-container
+```
+
+You can then inspect the running container logs with:
+
+```bash
+make logs-local-container
+```
+
+You can override the container name and published port if needed:
+
+```bash
+make run-local-container LOCAL_CONTAINER_NAME=funda-app-local LOCAL_CONTAINER_PORT=8080
 ```
 
 ## Deploy to Cloud Run
