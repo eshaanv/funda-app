@@ -24,7 +24,13 @@ def test_invoke_gemini_returns_response_text(
     fake_client = SimpleNamespace(
         models=SimpleNamespace(generate_content=fake_generate_content)
     )
-    monkeypatch.setattr(models, "GEMINI_CLIENT", fake_client)
+    monkeypatch.setattr(
+        models,
+        "get_app_settings",
+        lambda: SimpleNamespace(
+            gemini_client_settings=SimpleNamespace(client=fake_client)
+        ),
+    )
 
     config = GenerateContentConfig(temperature=0.2)
     response = models.invoke_gemini(
@@ -45,7 +51,13 @@ def test_invoke_gemini_returns_none_when_response_has_no_text(
     fake_client = SimpleNamespace(
         models=SimpleNamespace(generate_content=lambda **_: SimpleNamespace(text=None))
     )
-    monkeypatch.setattr(models, "GEMINI_CLIENT", fake_client)
+    monkeypatch.setattr(
+        models,
+        "get_app_settings",
+        lambda: SimpleNamespace(
+            gemini_client_settings=SimpleNamespace(client=fake_client)
+        ),
+    )
 
     response = models.invoke_gemini(prompt="Ping")
 

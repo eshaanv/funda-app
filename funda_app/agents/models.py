@@ -5,23 +5,10 @@ from enum import StrEnum
 from google import genai
 from google.genai import types
 from google.genai.types import GenerateContentConfig
-from pydantic import BaseModel
+
+from funda_app.app_settings import get_app_settings
 
 logger = logging.getLogger(__name__)
-
-
-class GeminiClientConfig(BaseModel):
-    def create_client(self) -> genai.Client:
-        """
-        Creates a Gemini API client.
-
-        Returns:
-            genai.Client: Configured Gemini client instance.
-        """
-        return genai.Client(vertexai=True)
-
-
-GEMINI_CLIENT = GeminiClientConfig().create_client()
 
 
 class GeminiModels(StrEnum):
@@ -65,11 +52,12 @@ def invoke_gemini(
         ),
     ]
 
+    client = get_app_settings().gemini_client_settings.client
     delay = initial_delay
 
     for attempt in range(max_retries):
         try:
-            response = GEMINI_CLIENT.models.generate_content(
+            response = client.models.generate_content(
                 model=model.value,
                 contents=contents,
                 config=config,

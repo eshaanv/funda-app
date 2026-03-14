@@ -3,7 +3,6 @@ import logging
 from fastapi import APIRouter, BackgroundTasks, Body, status
 
 from funda_app.schemas.webhooks import (
-    MemberWebhookEvent,
     MemberWebhookPayload,
     WebhookAcceptedResponse,
 )
@@ -30,14 +29,14 @@ async def post_keyai_webhook(
         payload.event,
         payload.member.id,
     )
-    if payload.event == MemberWebhookEvent.MEMBER_JOINED:
-        logger.info(
-            "Queued joined member background tasks: member_id=%s event_id=%s",
-            payload.member.id,
-            payload.eventId,
-        )
-        background_tasks.add_task(
-            webhook_service.dispatch_keyai_joined_member_tasks,
-            payload,
-        )
+    logger.info(
+        "Queued member background tasks: member_id=%s event=%s event_id=%s",
+        payload.member.id,
+        payload.event,
+        payload.eventId,
+    )
+    background_tasks.add_task(
+        webhook_service.dispatch_keyai_member_tasks,
+        payload,
+    )
     return webhook_service.handle_keyai_webhook(payload=payload)

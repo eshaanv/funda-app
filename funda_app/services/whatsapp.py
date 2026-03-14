@@ -7,7 +7,7 @@ from funda_app.schemas.whatsapp import (
     WhatsAppTemplateSendRequest,
 )
 from funda_app.services.whatsapp_templates import get_whatsapp_template
-from funda_app.settings import AppSettings, get_app_settings
+from funda_app.app_settings import AppSettings, get_app_settings
 
 
 def send_whatsapp_template_message(

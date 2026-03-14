@@ -8,6 +8,8 @@ Minimal FastAPI service for receiving Key.ai webhook calls.
 uv sync
 export WHATSAPP_ACCESS_TOKEN=your-token
 export WHATSAPP_PHONE_NUMBER_ID=your-phone-number-id
+export ATTIO_API_KEY=your-attio-api-key
+export ATTIO_FOUNDER_LIFECYCLE_LIST_ID=your-attio-list-id
 uv run uvicorn funda_app.main:app --reload
 ```
 
@@ -97,15 +99,17 @@ make deploy CLOUD_RUN_FLAGS=
 
 The Key.ai webhook endpoint accepts typed member event payloads, routes all
 member events through the payload's `event` field, and returns `202 Accepted`.
-`member.joined` additionally queues background work in this order: member
-enrichment first, then WhatsApp template delivery. Other member events are
-currently acknowledged without background processing.
+Every member event now queues an Attio CRM sync in the background. For
+`member.joined`, the background flow continues with Gemini enrichment and
+WhatsApp template delivery after the CRM sync completes.
 
 ## Joined member background flow
 
-`member.joined` is the only event that triggers post-acknowledgement work.
+`member.joined` is the only event that triggers the full post-acknowledgement
+workflow.
 
 - Funda immediately returns `202 Accepted` and runs the rest in a background task.
+- The Attio sync mirrors the member into the `Funda Founder Lifecycle` list.
 - The enrichment step uses Gemini to generate a short operator summary.
 - Enrichment looks for a LinkedIn URL in `member.linkedinUrl` first, then falls
   back to joined-question answers whose prompt contains `linked`.
@@ -113,6 +117,26 @@ currently acknowledged without background processing.
   present, otherwise from joined-question answers.
 - If no valid LinkedIn URL is available, enrichment is skipped.
 - The WhatsApp send still runs after the enrichment attempt.
+
+All other member events (`approved`, `rejected`, `removed`, `left`) currently
+stop after the background Attio sync.
+
+## Attio CRM sync
+
+Every Key.ai member event now mirrors into Attio.
+
+- People are matched in Attio by email address.
+- Phone numbers are normalized to E.164 before sync.
+- Company name, company stage, and LinkedIn URL use top-level member fields
+  first, then fall back to joined-question answers when available.
+- Lifecycle state is written to the `Funda Founder Lifecycle` Attio list.
+
+The Attio sync expects these environment variables:
+
+- `ATTIO_API_KEY`
+- `ATTIO_FOUNDER_LIFECYCLE_LIST_ID`
+- `ATTIO_BASE_URL` (optional, defaults to `https://api.attio.com/v2`)
+- `ATTIO_TIMEOUT_SECONDS` (optional, defaults to `10`)
 
 ## WhatsApp template dispatch
 

@@ -7,7 +7,7 @@ from funda_app.schemas.webhooks import MemberJoinedWebhookPayload
 from funda_app.schemas.whatsapp import WhatsAppTemplateName
 from funda_app.services import keyai_webhooks, whatsapp
 from funda_app.services.whatsapp_templates import get_whatsapp_template
-from funda_app.settings import get_app_settings
+from funda_app.app_settings import get_app_settings
 
 LIVE_RECIPIENT_PHONE = "19256400611"
 LIVE_TEMPLATE_FIRST_NAME = "Eshaan"

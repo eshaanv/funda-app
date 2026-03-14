@@ -4,7 +4,7 @@ from pydantic import ValidationError
 from funda_app.schemas.whatsapp import WhatsAppTemplateName, WhatsAppTemplateSendRequest
 from funda_app.services import whatsapp
 from funda_app.services.whatsapp_templates import get_whatsapp_template
-from funda_app.settings import AppSettings
+from funda_app.app_settings import AppSettings
 
 
 def test_send_whatsapp_template_message_posts_expected_payload(
