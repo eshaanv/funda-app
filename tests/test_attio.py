@@ -68,8 +68,8 @@ def test_sync_attio_member_posts_expected_payloads_without_company(
         settings=AppSettings(
             whatsapp_access_token="token",
             whatsapp_phone_number_id="1029270380269800",
-            attio_api_key="attio-token",
-            attio_founder_lifecycle_list_id="list-123",
+            attio_api_key_dev="attio-token",
+            attio_founder_lifecycle_list_id_dev="list-123",
         ),
     )
 
@@ -188,8 +188,8 @@ def test_sync_attio_member_syncs_company_before_person_and_list_entry(
         settings=AppSettings(
             whatsapp_access_token="token",
             whatsapp_phone_number_id="1029270380269800",
-            attio_api_key="attio-token",
-            attio_founder_lifecycle_list_id="list-123",
+            attio_api_key_dev="attio-token",
+            attio_founder_lifecycle_list_id_dev="list-123",
         ),
     )
 

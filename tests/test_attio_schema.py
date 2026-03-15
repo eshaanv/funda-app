@@ -170,7 +170,7 @@ def test_apply_attio_schema_plan_creates_list_before_lifecycle_attributes(
         settings=AppSettings(
             whatsapp_access_token="token",
             whatsapp_phone_number_id="1029270380269800",
-            attio_api_key="attio-token",
+            attio_api_key_dev="attio-token",
         ),
     )
 

@@ -92,13 +92,15 @@ def normalize_phone_number(raw_value: str | None) -> str | None:
 
 def _validate_attio_settings(settings: AppSettings) -> None:
     if settings.attio_api_key is None or not settings.attio_api_key.strip():
-        raise ValueError("ATTIO_API_KEY is required")
+        raise ValueError(f"{settings.attio_api_key_env_var} is required")
 
     if (
         settings.attio_founder_lifecycle_list_id is None
         or not settings.attio_founder_lifecycle_list_id.strip()
     ):
-        raise ValueError("ATTIO_FOUNDER_LIFECYCLE_LIST_ID is required")
+        raise ValueError(
+            f"{settings.attio_founder_lifecycle_list_id_env_var} is required"
+        )
 
 
 def _sync_company(company: AttioCompanySyncPayload, settings: AppSettings) -> str:
@@ -146,7 +148,9 @@ def _sync_company(company: AttioCompanySyncPayload, settings: AppSettings) -> st
     return existing_record_id
 
 
-def _find_company_record_id_by_name(company_name: str, settings: AppSettings) -> str | None:
+def _find_company_record_id_by_name(
+    company_name: str, settings: AppSettings
+) -> str | None:
     response = _request_json(
         method="POST",
         url=(
@@ -182,7 +186,9 @@ def _assert_person_record(
     if not sync_request.person.email.strip():
         raise ValueError("Attio person sync requires an email address")
 
-    query = parse.urlencode({"matching_attribute": ATTIO_SCHEMA.person.matching_attribute})
+    query = parse.urlencode(
+        {"matching_attribute": ATTIO_SCHEMA.person.matching_attribute}
+    )
     response = _request_json(
         method="PUT",
         url=(
@@ -255,7 +261,9 @@ def _build_person_values(
         values[ATTIO_SCHEMA.person.phone_attribute] = [phone_value]
 
     if sync_request.person.linkedin_url is not None:
-        values[ATTIO_SCHEMA.person.linkedin_attribute] = sync_request.person.linkedin_url
+        values[ATTIO_SCHEMA.person.linkedin_attribute] = (
+            sync_request.person.linkedin_url
+        )
 
     if company_record_id is not None:
         values[ATTIO_SCHEMA.person.company_relationship_attribute] = [

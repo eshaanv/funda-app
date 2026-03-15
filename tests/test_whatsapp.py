@@ -38,7 +38,9 @@ def test_send_whatsapp_template_message_posts_expected_payload(
         ),
     )
 
-    assert captured["url"] == "https://graph.facebook.com/v25.0/1029270380269800/messages"
+    assert (
+        captured["url"] == "https://graph.facebook.com/v25.0/1029270380269800/messages"
+    )
     assert captured["payload"] == {
         "messaging_product": "whatsapp",
         "recipient_type": "individual",

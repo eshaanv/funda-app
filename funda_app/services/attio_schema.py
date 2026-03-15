@@ -495,7 +495,7 @@ def _normalize_parent_objects(parent_object: object) -> tuple[str, ...]:
 
 def _validate_attio_api_key(settings: AppSettings) -> None:
     if settings.attio_api_key is None or not settings.attio_api_key.strip():
-        raise ValueError("ATTIO_API_KEY is required")
+        raise ValueError(f"{settings.attio_api_key_env_var} is required")
 
 
 def _request_json(

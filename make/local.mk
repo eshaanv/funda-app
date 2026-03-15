@@ -1,6 +1,7 @@
 .PHONY: auth test-local-webhook run-local-container logs-local-container
 .PHONY: attio-founder-lifecycle-attributes attio-people-attributes attio-company-attributes
 
+APP_ENV ?= dev
 LOCAL_CONTAINER_NAME ?= funda-app-local
 LOCAL_CONTAINER_PORT ?= 8080
 LOCAL_CONTAINER_ENV_FILE ?= .env
@@ -10,30 +11,32 @@ LOCAL_WEBHOOK_HOST ?= 127.0.0.1
 LOCAL_WEBHOOK_PORT ?= $(LOCAL_CONTAINER_PORT)
 LOCAL_WEBHOOK_BASE_URL ?= http://$(LOCAL_WEBHOOK_HOST):$(LOCAL_WEBHOOK_PORT)
 ATTIO_BASE_URL ?= https://api.attio.com/v2
+ATTIO_SELECTED_API_KEY := $(if $(filter prod,$(APP_ENV)),$(ATTIO_API_KEY_PROD),$(ATTIO_API_KEY_DEV))
+ATTIO_SELECTED_FOUNDER_LIFECYCLE_LIST_ID := $(if $(filter prod,$(APP_ENV)),$(ATTIO_FOUNDER_LIFECYCLE_LIST_ID_PROD),$(ATTIO_FOUNDER_LIFECYCLE_LIST_ID_DEV))
 
 auth:
 	gcloud auth application-default login
 
 attio-founder-lifecycle-attributes:
-	@test -n "$(ATTIO_API_KEY)" || { echo "ATTIO_API_KEY is required"; exit 1; }
-	@test -n "$(ATTIO_FOUNDER_LIFECYCLE_LIST_ID)" || { echo "ATTIO_FOUNDER_LIFECYCLE_LIST_ID is required"; exit 1; }
+	@test -n "$(ATTIO_SELECTED_API_KEY)" || { echo "ATTIO_API_KEY_$(shell printf '%s' $(APP_ENV) | tr '[:lower:]' '[:upper:]') is required"; exit 1; }
+	@test -n "$(ATTIO_SELECTED_FOUNDER_LIFECYCLE_LIST_ID)" || { echo "ATTIO_FOUNDER_LIFECYCLE_LIST_ID_$(shell printf '%s' $(APP_ENV) | tr '[:lower:]' '[:upper:]') is required"; exit 1; }
 	curl --request GET \
-		--url "$(ATTIO_BASE_URL)/lists/$(ATTIO_FOUNDER_LIFECYCLE_LIST_ID)/attributes" \
-		--header "Authorization: Bearer $(ATTIO_API_KEY)" \
+		--url "$(ATTIO_BASE_URL)/lists/$(ATTIO_SELECTED_FOUNDER_LIFECYCLE_LIST_ID)/attributes" \
+		--header "Authorization: Bearer $(ATTIO_SELECTED_API_KEY)" \
 	| jq '.data[] | {title, api_slug, type}'
 
 attio-people-attributes:
-	@test -n "$(ATTIO_API_KEY)" || { echo "ATTIO_API_KEY is required"; exit 1; }
+	@test -n "$(ATTIO_SELECTED_API_KEY)" || { echo "ATTIO_API_KEY_$(shell printf '%s' $(APP_ENV) | tr '[:lower:]' '[:upper:]') is required"; exit 1; }
 	curl --request GET \
 		--url "$(ATTIO_BASE_URL)/objects/people/attributes" \
-		--header "Authorization: Bearer $(ATTIO_API_KEY)" \
+		--header "Authorization: Bearer $(ATTIO_SELECTED_API_KEY)" \
 	| jq '.data[] | {title, api_slug, type}'
 
 attio-company-attributes:
-	@test -n "$(ATTIO_API_KEY)" || { echo "ATTIO_API_KEY is required"; exit 1; }
+	@test -n "$(ATTIO_SELECTED_API_KEY)" || { echo "ATTIO_API_KEY_$(shell printf '%s' $(APP_ENV) | tr '[:lower:]' '[:upper:]') is required"; exit 1; }
 	curl --request GET \
 		--url "$(ATTIO_BASE_URL)/objects/companies/attributes" \
-		--header "Authorization: Bearer $(ATTIO_API_KEY)" \
+		--header "Authorization: Bearer $(ATTIO_SELECTED_API_KEY)" \
 	| jq '.data[] | {title, api_slug, type}'
 
 test-local-webhook: run-local-container

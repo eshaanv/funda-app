@@ -6,10 +6,11 @@ Minimal FastAPI service for receiving Key.ai webhook calls.
 
 ```bash
 uv sync
+export APP_ENV=dev
 export WHATSAPP_ACCESS_TOKEN=your-token
 export WHATSAPP_PHONE_NUMBER_ID=your-phone-number-id
-export ATTIO_API_KEY=your-attio-api-key
-export ATTIO_FOUNDER_LIFECYCLE_LIST_ID=your-attio-list-id
+export ATTIO_API_KEY_DEV=your-dev-attio-api-key
+export ATTIO_FOUNDER_LIFECYCLE_LIST_ID_DEV=your-dev-attio-list-id
 uv run uvicorn funda_app.main:app --reload
 ```
 
@@ -437,8 +438,11 @@ Every Key.ai member event now mirrors into Attio.
 
 The Attio sync expects these environment variables:
 
-- `ATTIO_API_KEY`
-- `ATTIO_FOUNDER_LIFECYCLE_LIST_ID`
+- `APP_ENV` (`dev` by default, or `prod`)
+- `ATTIO_API_KEY_DEV`
+- `ATTIO_API_KEY_PROD`
+- `ATTIO_FOUNDER_LIFECYCLE_LIST_ID_DEV`
+- `ATTIO_FOUNDER_LIFECYCLE_LIST_ID_PROD`
 - `ATTIO_BASE_URL` (optional, defaults to `https://api.attio.com/v2`)
 - `ATTIO_TIMEOUT_SECONDS` (optional, defaults to `10`)
 
@@ -470,13 +474,14 @@ uv run python scripts/apply_attio_schema.py
 If you want the apply/check plan to treat extra custom attributes as drift,
 pass `--archive-extra-custom-attributes`.
 
-These scripts are workspace-configurable through environment only. To target a
-different Attio workspace, switch `ATTIO_API_KEY` and, if needed, pass a
-different lifecycle list override with `--list-id`.
+These scripts select the active Attio workspace from `APP_ENV`. To target a
+different workspace, set `APP_ENV=dev` or `APP_ENV=prod`. You can still pass a
+manual lifecycle list override with `--list-id` when needed.
 
 The older `make attio-founder-lifecycle-attributes`,
 `make attio-people-attributes`, and `make attio-company-attributes` helpers
-still exist for direct low-level inspection.
+still exist for direct low-level inspection, and they now follow `APP_ENV`
+too.
 
 ## WhatsApp template dispatch
 
