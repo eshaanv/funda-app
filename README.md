@@ -140,9 +140,9 @@ Configure the `develop` GitHub environment with these values before using it:
 
 - Variables: `GOOGLE_CLOUD_PROJECT`, `CLOUD_RUN_LOCATION`,
   `ARTIFACT_REGISTRY_REPOSITORY`, `CLOUD_RUN_SERVICE_NAME`,
-  `GCP_SERVICE_ACCOUNT_EMAIL`, `GCP_WORKLOAD_IDENTITY_PROVIDER`,
+  `GCP_SERVICE_ACCOUNT_EMAIL`,
   `TERRAFORM_STATE_BUCKET`, `TERRAFORM_STATE_PREFIX`
-- Secret: `GH_TERRAFORM_TOKEN`
+- Secrets: `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GH_TERRAFORM_TOKEN`
 
 The deploy service account needs permission to push images to Artifact
 Registry and deploy Cloud Run revisions. The workflow only updates the service
@@ -196,7 +196,8 @@ Terraform under `infra/` manages:
 
 Terraform does not manage the Cloud Run service itself. GitHub Actions still
 builds the image and runs `make deploy`, and the Cloud Run runtime env vars and
-secrets remain outside Terraform.
+secrets remain outside Terraform. `GCP_WORKLOAD_IDENTITY_PROVIDER` stays a
+GitHub environment secret and is not managed by Terraform.
 
 ### Bootstrap remote state
 
@@ -376,10 +377,6 @@ terraform -chdir=infra/environments/prod import \
   "funda-app:production:GCP_SERVICE_ACCOUNT_EMAIL"
 
 terraform -chdir=infra/environments/prod import \
-  'module.github_environment.github_actions_environment_variable.vars["GCP_WORKLOAD_IDENTITY_PROVIDER"]' \
-  "funda-app:production:GCP_WORKLOAD_IDENTITY_PROVIDER"
-
-terraform -chdir=infra/environments/prod import \
   'module.github_environment.github_actions_environment_variable.vars["TERRAFORM_STATE_BUCKET"]' \
   "funda-app:production:TERRAFORM_STATE_BUCKET"
 
@@ -389,7 +386,8 @@ terraform -chdir=infra/environments/prod import \
 ```
 
 The additive IAM resources do not need pre-import. Terraform can reconcile
-those on `apply`.
+those on `apply`. Set `GCP_WORKLOAD_IDENTITY_PROVIDER` manually as a GitHub
+environment secret in both `develop` and `production`.
 
 ### Validate and apply
 

@@ -7,7 +7,6 @@ locals {
       ARTIFACT_REGISTRY_REPOSITORY   = var.artifact_registry_repository
       CLOUD_RUN_SERVICE_NAME         = var.cloud_run_service_name
       GCP_SERVICE_ACCOUNT_EMAIL      = module.gcp.deployer_service_account_email
-      GCP_WORKLOAD_IDENTITY_PROVIDER = module.gcp.workload_identity_provider_name
       TERRAFORM_STATE_BUCKET         = var.terraform_state_bucket
       TERRAFORM_STATE_PREFIX         = var.terraform_state_prefix
     },
