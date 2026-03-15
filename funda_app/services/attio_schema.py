@@ -199,10 +199,25 @@ def apply_attio_schema_plan(
 
     for action in plan.actions:
         if action.kind == "create_list":
+            payload = action.payload
+            # Ensure the lifecycle list grants access to at least one workspace
+            # member. Attio now requires `workspace_member_access` entries with
+            # explicit `workspace_member_id` and `level` values.
+            member_id = runtime_settings.attio_workspace_member_id
+            if member_id:
+                data = dict(payload.get("data", {}))
+                data["workspace_member_access"] = [
+                    {
+                        "workspace_member_id": member_id,
+                        "level": "full-access",
+                    }
+                ]
+                payload = {"data": data}
+
             response = _request_json(
                 method="POST",
                 url=f"{runtime_settings.attio_base_url.rstrip('/')}/lists",
-                payload=action.payload,
+                payload=payload,
                 access_token=runtime_settings.attio_api_key or "",
                 timeout_seconds=runtime_settings.attio_timeout_seconds,
             )
@@ -210,13 +225,30 @@ def apply_attio_schema_plan(
             continue
 
         if action.kind == "update_list":
+            payload = action.payload
+            member_id = runtime_settings.attio_workspace_member_id
+            if member_id:
+                data = dict(payload.get("data", {}))
+                # Keep existing workspace_member_access if present, otherwise
+                # ensure at least one member has access.
+                data.setdefault(
+                    "workspace_member_access",
+                    [
+                        {
+                            "workspace_member_id": member_id,
+                            "level": "full-access",
+                        }
+                    ],
+                )
+                payload = {"data": data}
+
             _request_json(
                 method="PATCH",
                 url=(
                     f"{runtime_settings.attio_base_url.rstrip('/')}/lists/"
                     f"{action.identifier}"
                 ),
-                payload=action.payload,
+                payload=payload,
                 access_token=runtime_settings.attio_api_key or "",
                 timeout_seconds=runtime_settings.attio_timeout_seconds,
             )
@@ -329,6 +361,15 @@ def _plan_attribute_target(
             expected_attribute=expected_attribute,
             live_attribute=live_attribute,
         ):
+            update_data = expected_attribute.update_payload()
+            # Attio does not allow toggling `is_required` on attributes that
+            # belong to standard objects (`objects/*` targets). To keep the
+            # schema sync safe, we avoid sending `is_required` in update
+            # payloads for object-level attributes and only reconcile the
+            # fields that Attio permits to change.
+            if target == "objects":
+                update_data.pop("is_required", None)
+
             actions.append(
                 AttioSchemaAction(
                     kind="update_attribute",
@@ -336,7 +377,7 @@ def _plan_attribute_target(
                     identifier=identifier,
                     api_slug=expected_attribute.api_slug,
                     title=expected_attribute.title,
-                    payload={"data": expected_attribute.update_payload()},
+                    payload={"data": update_data},
                 )
             )
 
@@ -364,11 +405,19 @@ def _attribute_needs_update(
     expected_attribute: AttioAttributeDefinition,
     live_attribute: AttioLiveAttribute,
 ) -> bool:
+    ignore_required_and_unique = live_attribute.is_system_attribute
+
     return (
         live_attribute.title != expected_attribute.title
         or live_attribute.description != expected_attribute.description
-        or live_attribute.is_required != expected_attribute.is_required
-        or live_attribute.is_unique != expected_attribute.is_unique
+        or (
+            not ignore_required_and_unique
+            and live_attribute.is_required != expected_attribute.is_required
+        )
+        or (
+            not ignore_required_and_unique
+            and live_attribute.is_unique != expected_attribute.is_unique
+        )
         or live_attribute.is_multiselect != expected_attribute.is_multiselect
         or live_attribute.is_archived
     )

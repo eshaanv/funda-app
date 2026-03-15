@@ -109,14 +109,13 @@ class AttioListDefinition(BaseModel):
         Returns:
             dict[str, object]: JSON payload for the Attio create-list API.
         """
+
         return {
             "name": self.name,
             "api_slug": self.api_slug,
             "parent_object": self.parent_object,
             "workspace_access": self.workspace_access,
-            "workspace_member_access": [
-                {"member_access": value} for value in self.workspace_member_access
-            ],
+            "workspace_member_access": [],
         }
 
     def update_payload(self) -> dict[str, object]:
@@ -126,14 +125,13 @@ class AttioListDefinition(BaseModel):
         Returns:
             dict[str, object]: JSON payload for the Attio update-list API.
         """
-        return {
+        payload: dict[str, object] = {
             "name": self.name,
             "api_slug": self.api_slug,
             "workspace_access": self.workspace_access,
-            "workspace_member_access": [
-                {"member_access": value} for value in self.workspace_member_access
-            ],
         }
+
+        return payload
 
 
 class AttioLiveAttribute(BaseModel):
