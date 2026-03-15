@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from funda_app.schemas.webhooks import MemberWebhookEvent
+
 
 class WhatsAppTemplateName(StrEnum):
     FUNDA_SIGNUP_CONFIRMATION = "funda_signup_confirmation"
@@ -27,3 +29,16 @@ class WhatsAppDispatchResult(BaseModel):
     status: Literal["sent", "skipped"]
     detail: str
     message_id: str | None = None
+
+
+def whatsapp_template_name_for_event(
+    event: MemberWebhookEvent,
+) -> WhatsAppTemplateName | None:
+    """Returns the WhatsApp template name for a Key.ai member webhook event, or None if unsupported."""
+    if event == MemberWebhookEvent.MEMBER_JOINED:
+        return WhatsAppTemplateName.FUNDA_SIGNUP_CONFIRMATION
+    if event == MemberWebhookEvent.MEMBER_APPROVED:
+        return WhatsAppTemplateName.FUNDA_MEMBERSHIP_APPROVED
+    if event == MemberWebhookEvent.MEMBER_REJECTED:
+        return WhatsAppTemplateName.FUNDA_MEMBERSHIP_REJECTED
+    return None

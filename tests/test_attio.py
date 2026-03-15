@@ -2,6 +2,7 @@ from datetime import datetime, UTC
 
 import pytest
 
+from funda_app.core import normalize_phone_number
 from funda_app.schemas.crm import (
     AttioCompanySyncPayload,
     AttioLifecycleSyncRequest,
@@ -13,9 +14,9 @@ from funda_app.app_settings import AppSettings
 
 
 def test_normalize_phone_number_formats_us_numbers() -> None:
-    assert attio.normalize_phone_number("9256400611") == "+19256400611"
-    assert attio.normalize_phone_number("+1 (925) 640-0611") == "+19256400611"
-    assert attio.normalize_phone_number("19256400611") == "+19256400611"
+    assert normalize_phone_number("9256400611") == "+19256400611"
+    assert normalize_phone_number("+1 (925) 640-0611") == "+19256400611"
+    assert normalize_phone_number("19256400611") == "+19256400611"
 
 
 def test_sync_attio_member_posts_expected_payloads_without_company(
@@ -45,7 +46,7 @@ def test_sync_attio_member_posts_expected_payloads_without_company(
 
         return {"data": {"id": {"entry_id": "entry-123"}}}
 
-    monkeypatch.setattr(attio, "_request_json", fake_request_json)
+    monkeypatch.setattr(attio, "request_json", fake_request_json)
 
     result = attio.sync_attio_member(
         sync_request=AttioLifecycleSyncRequest(
@@ -161,7 +162,7 @@ def test_sync_attio_member_syncs_company_before_person_and_list_entry(
 
         return {"data": {"id": {"entry_id": "entry-123"}}}
 
-    monkeypatch.setattr(attio, "_request_json", fake_request_json)
+    monkeypatch.setattr(attio, "request_json", fake_request_json)
 
     result = attio.sync_attio_member(
         sync_request=AttioLifecycleSyncRequest(
@@ -296,7 +297,7 @@ def test_sync_attio_member_includes_job_title_and_company_website_in_payloads(
             return {"data": {"id": {"entry_id": "entry-456"}}}
         return {"data": []}
 
-    monkeypatch.setattr(attio, "_request_json", fake_request_json)
+    monkeypatch.setattr(attio, "request_json", fake_request_json)
 
     attio.sync_attio_member(
         sync_request=AttioLifecycleSyncRequest(
@@ -334,6 +335,8 @@ def test_sync_attio_member_includes_job_title_and_company_website_in_payloads(
     assert person_call["payload"]["data"]["values"]["job_title"] == "CEO"
 
     company_call = next(
-        c for c in captured_calls if "companies/records" in c["url"] and "query" not in c["url"]
+        c
+        for c in captured_calls
+        if "companies/records" in c["url"] and "query" not in c["url"]
     )
     assert company_call["payload"]["data"]["values"]["company_website"] == "startup.com"

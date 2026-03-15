@@ -1,4 +1,4 @@
-.PHONY: auth test-local-webhook run-local-container logs-local-container
+.PHONY: auth _ensure-local-webhook-ready test-local-webhook test-local-webhook-joined test-local-webhook-approved test-local-webhook-rejected test-local-webhook-removed test-local-webhook-left run-local-container logs-local-container
 .PHONY: attio-founder-lifecycle-attributes attio-people-attributes attio-company-attributes
 
 APP_ENV ?= dev
@@ -57,7 +57,9 @@ attio-company-attributes-dev:
 attio-company-attributes-prod:
 	@$(MAKE) APP_ENV=prod attio-company-attributes
 
-test-local-webhook: run-local-container
+WEBHOOK_PYTEST = RUN_LOCAL_WEBHOOK_TESTS=1 LOCAL_WEBHOOK_BASE_URL="$(LOCAL_WEBHOOK_BASE_URL)" uv run pytest tests/test_webhooks_functional.py -q
+
+_ensure-local-webhook-ready: run-local-container
 	@echo "Waiting for local container at $(LOCAL_WEBHOOK_BASE_URL)"
 	@for i in 1 2 3 4 5 6 7 8 9 10; do \
 		if curl -fsS "$(LOCAL_WEBHOOK_BASE_URL)/health" >/dev/null 2>&1; then \
@@ -68,9 +70,25 @@ test-local-webhook: run-local-container
 	curl -fsS "$(LOCAL_WEBHOOK_BASE_URL)/health" >/dev/null 2>&1 || { \
 		echo "Local container is not healthy. Use 'make logs-local-container' to inspect logs."; \
 		exit 1; \
-	}; \
-	RUN_LOCAL_WEBHOOK_TESTS=1 LOCAL_WEBHOOK_BASE_URL="$(LOCAL_WEBHOOK_BASE_URL)" \
-		uv run pytest tests/test_webhooks_functional.py -q
+	}
+
+test-local-webhook: _ensure-local-webhook-ready
+	$(WEBHOOK_PYTEST)
+
+test-local-webhook-joined: _ensure-local-webhook-ready
+	$(WEBHOOK_PYTEST) -k "test_member_joined_local_fastapi_webhook"
+
+test-local-webhook-approved: _ensure-local-webhook-ready
+	$(WEBHOOK_PYTEST) -k "test_member_approved_local_fastapi_webhook"
+
+test-local-webhook-rejected: _ensure-local-webhook-ready
+	$(WEBHOOK_PYTEST) -k "test_member_rejected_local_fastapi_webhook"
+
+test-local-webhook-removed: _ensure-local-webhook-ready
+	$(WEBHOOK_PYTEST) -k "test_member_removed_local_fastapi_webhook"
+
+test-local-webhook-left: _ensure-local-webhook-ready
+	$(WEBHOOK_PYTEST) -k "test_member_left_local_fastapi_webhook"
 
 run-local-container: build-image
 	@if [ ! -f "$(LOCAL_CONTAINER_ENV_FILE)" ]; then \

@@ -1,6 +1,5 @@
-import json
 from collections.abc import Mapping
-from urllib import error, parse, request
+from urllib import parse
 
 from funda_app.schemas.crm import (
     ATTIO_SCHEMA,
@@ -9,6 +8,7 @@ from funda_app.schemas.crm import (
     AttioSyncResult,
 )
 from funda_app.app_settings import AppSettings, get_app_settings
+from funda_app.utils.http import request_json
 
 
 def sync_attio_member(
@@ -60,61 +60,17 @@ def sync_attio_member(
     )
 
 
-def normalize_phone_number(raw_value: str | None) -> str | None:
-    """
-    Normalizes a phone number into E.164-like format.
-
-    Args:
-        raw_value (str | None): Source phone number.
-
-    Returns:
-        str | None: Normalized phone number, or None when the source is empty.
-    """
-    if raw_value is None or not raw_value.strip():
-        return None
-
-    stripped_value = raw_value.strip()
-    digits = "".join(character for character in stripped_value if character.isdigit())
-    if not digits:
-        return None
-
-    if stripped_value.startswith("+"):
-        return f"+{digits}"
-
-    if len(digits) == 10:
-        return f"+1{digits}"
-
-    if len(digits) == 11 and digits.startswith("1"):
-        return f"+{digits}"
-
-    return f"+{digits}"
-
-
 def _validate_attio_settings(settings: AppSettings) -> None:
     if settings.attio_api_key is None or not settings.attio_api_key.strip():
-        raise ValueError(f"{_attio_api_key_env_var_name(settings.app_env)} is required")
+        raise ValueError(f"Set the Attio API key in env - {settings.app_env}")
 
     if (
         settings.attio_founder_lifecycle_list_id is None
         or not settings.attio_founder_lifecycle_list_id.strip()
     ):
         raise ValueError(
-            f"{_attio_founder_lifecycle_list_id_env_var_name(settings.app_env)} is required"
+            f"Set the Attio founder lifecycle id in env - {settings.app_env}"
         )
-
-
-def _attio_api_key_env_var_name(app_env: str) -> str:
-    if app_env == "prod":
-        return "ATTIO_API_KEY_PROD"
-
-    return "ATTIO_API_KEY_DEV"
-
-
-def _attio_founder_lifecycle_list_id_env_var_name(app_env: str) -> str:
-    if app_env == "prod":
-        return "ATTIO_FOUNDER_LIFECYCLE_LIST_ID_PROD"
-
-    return "ATTIO_FOUNDER_LIFECYCLE_LIST_ID_DEV"
 
 
 def _sync_company(company: AttioCompanySyncPayload, settings: AppSettings) -> str:
@@ -124,7 +80,7 @@ def _sync_company(company: AttioCompanySyncPayload, settings: AppSettings) -> st
     )
 
     if existing_record_id is None:
-        response = _request_json(
+        response = request_json(
             method="POST",
             url=(
                 f"{settings.attio_base_url.rstrip('/')}/objects/"
@@ -142,7 +98,7 @@ def _sync_company(company: AttioCompanySyncPayload, settings: AppSettings) -> st
         )
         return _extract_record_id(response)
 
-    _request_json(
+    request_json(
         method="PATCH",
         url=(
             f"{settings.attio_base_url.rstrip('/')}/objects/"
@@ -165,7 +121,7 @@ def _sync_company(company: AttioCompanySyncPayload, settings: AppSettings) -> st
 def _find_company_record_id_by_name(
     company_name: str, settings: AppSettings
 ) -> str | None:
-    response = _request_json(
+    response = request_json(
         method="POST",
         url=(
             f"{settings.attio_base_url.rstrip('/')}/objects/"
@@ -203,7 +159,7 @@ def _assert_person_record(
     query = parse.urlencode(
         {"matching_attribute": ATTIO_SCHEMA.person.matching_attribute}
     )
-    response = _request_json(
+    response = request_json(
         method="PUT",
         url=(
             f"{settings.attio_base_url.rstrip('/')}/objects/"
@@ -228,7 +184,7 @@ def _assert_lifecycle_entry(
     person_record_id: str,
     settings: AppSettings,
 ) -> str:
-    response = _request_json(
+    response = request_json(
         method="PUT",
         url=(
             f"{settings.attio_base_url.rstrip('/')}/lists/"
@@ -280,9 +236,7 @@ def _build_person_values(
         )
 
     if sync_request.person.job_title is not None:
-        values[ATTIO_SCHEMA.person.job_title_attribute] = (
-            sync_request.person.job_title
-        )
+        values[ATTIO_SCHEMA.person.job_title_attribute] = sync_request.person.job_title
 
     if company_record_id is not None:
         values[ATTIO_SCHEMA.person.company_relationship_attribute] = [
@@ -302,9 +256,7 @@ def _build_company_values(
     if company.stage is not None:
         values[ATTIO_SCHEMA.company.stage_attribute] = company.stage
     if company.company_website is not None:
-        values[ATTIO_SCHEMA.company.company_website_attribute] = (
-            company.company_website
-        )
+        values[ATTIO_SCHEMA.company.company_website_attribute] = company.company_website
 
     return values
 
@@ -340,36 +292,3 @@ def _extract_record_id(response: Mapping[str, object]) -> str:
 
 def _extract_entry_id(response: Mapping[str, object]) -> str:
     return response["data"]["id"]["entry_id"]
-
-
-def _request_json(
-    method: str,
-    url: str,
-    payload: dict[str, object],
-    access_token: str,
-    timeout_seconds: float,
-) -> dict[str, object]:
-    request_body = json.dumps(payload).encode("utf-8")
-    http_request = request.Request(
-        url=url,
-        data=request_body,
-        method=method,
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        },
-    )
-
-    try:
-        with request.urlopen(http_request, timeout=timeout_seconds) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except error.HTTPError as exc:
-        response_body = exc.read().decode("utf-8")
-        raise error.HTTPError(
-            url=exc.url,
-            code=exc.code,
-            msg=response_body or exc.reason,
-            hdrs=exc.headers,
-            fp=None,
-        ) from exc

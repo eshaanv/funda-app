@@ -28,11 +28,11 @@ WHATSAPP_TEMPLATE_REGISTRY: dict[WhatsAppTemplateName, WhatsAppTemplateDefinitio
 }
 
 
-def get_whatsapp_template(
+def get_whatsapp_template_definition(
     template_name: WhatsAppTemplateName,
 ) -> WhatsAppTemplateDefinition:
     """
-    Fetches a WhatsApp template definition from the registry.
+    Returns the WhatsApp template definition for a given template name.
 
     Args:
         template_name (WhatsAppTemplateName): The approved template name.
