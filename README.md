@@ -206,14 +206,19 @@ Create one GCS state bucket per environment from `infra/bootstrap/`:
 
 ```bash
 terraform -chdir=infra/bootstrap init
-terraform -chdir=infra/bootstrap apply -var-file=prod.tfvars
+terraform -chdir=infra/bootstrap workspace select dev || terraform -chdir=infra/bootstrap workspace new dev
 terraform -chdir=infra/bootstrap apply -var-file=dev.tfvars
+terraform -chdir=infra/bootstrap workspace select prod || terraform -chdir=infra/bootstrap workspace new prod
+terraform -chdir=infra/bootstrap apply -var-file=prod.tfvars
 ```
 
 The bootstrap stack creates versioned buckets with uniform bucket-level access
 and public access prevention enabled. It also grants
 `roles/storage.objectAdmin` on each state bucket to the GitHub deployer
-service account so Terraform can read and write remote state.
+service account so Terraform can read and write remote state. Use separate
+bootstrap workspaces for `dev` and `prod`; otherwise Terraform will try to
+replace one environment's bucket with the other because the bootstrap root uses
+local state.
 
 Create `infra/bootstrap/prod.tfvars` with:
 

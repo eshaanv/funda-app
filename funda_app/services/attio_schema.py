@@ -193,15 +193,18 @@ def apply_attio_schema_plan(
         issue_messages = "; ".join(issue.message for issue in plan.issues)
         raise ValueError(f"Attio schema plan has blocking issues: {issue_messages}")
 
+    lifecycle_list_identifier = plan.lifecycle_list_id or ATTIO_SCHEMA.lifecycle.list_api_slug
+
     for action in plan.actions:
         if action.kind == "create_list":
-            _request_json(
+            response = _request_json(
                 method="POST",
                 url=f"{runtime_settings.attio_base_url.rstrip('/')}/lists",
                 payload=action.payload,
                 access_token=runtime_settings.attio_api_key or "",
                 timeout_seconds=runtime_settings.attio_timeout_seconds,
             )
+            lifecycle_list_identifier = response["data"]["id"]["list_id"]
             continue
 
         if action.kind == "update_list":
@@ -220,12 +223,16 @@ def apply_attio_schema_plan(
         if action.api_slug is None:
             raise ValueError("Attribute schema actions require an attribute slug")
 
+        target_identifier = action.identifier
+        if action.target == "lists" and target_identifier == ATTIO_SCHEMA.lifecycle.list_api_slug:
+            target_identifier = lifecycle_list_identifier
+
         if action.kind == "create_attribute":
             _request_json(
                 method="POST",
                 url=(
                     f"{runtime_settings.attio_base_url.rstrip('/')}/{action.target}/"
-                    f"{action.identifier}/attributes"
+                    f"{target_identifier}/attributes"
                 ),
                 payload=action.payload,
                 access_token=runtime_settings.attio_api_key or "",
@@ -238,7 +245,7 @@ def apply_attio_schema_plan(
                 method="PATCH",
                 url=(
                     f"{runtime_settings.attio_base_url.rstrip('/')}/{action.target}/"
-                    f"{action.identifier}/attributes/{action.api_slug}"
+                    f"{target_identifier}/attributes/{action.api_slug}"
                 ),
                 payload=action.payload,
                 access_token=runtime_settings.attio_api_key or "",

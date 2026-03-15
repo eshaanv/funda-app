@@ -45,6 +45,7 @@ class AttioAttributeDefinition(BaseModel):
     title: str
     api_slug: str
     type: str = "text"
+    config: dict[str, object] = Field(default_factory=dict)
     description: str | None = None
     is_required: bool = False
     is_unique: bool = False
@@ -61,6 +62,7 @@ class AttioAttributeDefinition(BaseModel):
             "title": self.title,
             "api_slug": self.api_slug,
             "type": self.type,
+            "config": self.config,
             "is_required": self.is_required,
             "is_unique": self.is_unique,
             "is_multiselect": self.is_multiselect,
@@ -77,9 +79,17 @@ class AttioAttributeDefinition(BaseModel):
         Returns:
             dict[str, object]: JSON payload for the Attio update-attribute API.
         """
-        payload = self.create_payload()
-        payload.pop("type")
-        payload["is_archived"] = False
+        payload: dict[str, object] = {
+            "title": self.title,
+            "api_slug": self.api_slug,
+            "config": self.config,
+            "is_required": self.is_required,
+            "is_unique": self.is_unique,
+            "is_archived": False,
+        }
+        if self.description is not None:
+            payload["description"] = self.description
+
         return payload
 
 

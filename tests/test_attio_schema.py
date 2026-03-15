@@ -177,13 +177,28 @@ def test_apply_attio_schema_plan_creates_list_before_lifecycle_attributes(
     lifecycle_attribute_urls = [
         url
         for _, url in captured_calls
-        if "/lists/funda_founder_lifecycle/attributes" in url
+        if "/lists/list-123/attributes" in url
     ]
     assert captured_calls[3] == ("POST", "https://api.attio.com/v2/lists")
     assert lifecycle_attribute_urls
     assert captured_calls.index(
         ("POST", "https://api.attio.com/v2/lists")
     ) < captured_calls.index(("POST", lifecycle_attribute_urls[0]))
+    assert all("/lists/list-123/attributes" in url for url in lifecycle_attribute_urls)
+
+
+def test_attio_attribute_definition_payload_includes_config() -> None:
+    payload = ATTIO_SCHEMA.lifecycle.custom_attributes()[0].create_payload()
+
+    assert payload["config"] == {}
+
+
+def test_attio_attribute_update_payload_excludes_is_multiselect() -> None:
+    payload = ATTIO_SCHEMA.lifecycle.custom_attributes()[0].update_payload()
+
+    assert payload["config"] == {}
+    assert "is_multiselect" not in payload
+    assert payload["is_archived"] is False
 
 
 def _live_attribute(
