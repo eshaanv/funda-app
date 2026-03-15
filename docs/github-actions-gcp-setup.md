@@ -126,6 +126,12 @@ Secret:
 
 - `GCP_WORKLOAD_IDENTITY_PROVIDER`
 
+The `production` GitHub environment used by
+[`/.github/workflows/deploy-main.yml`](../.github/workflows/deploy-main.yml)
+uses the same variable and secret names. Point them at the production project,
+region, Artifact Registry repository, Cloud Run service, deployer service
+account, and workload identity provider values.
+
 Set `GCP_WORKLOAD_IDENTITY_PROVIDER` to:
 
 ```text

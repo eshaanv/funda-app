@@ -152,6 +152,11 @@ For the full one-time Google Cloud setup commands, including service account,
 Workload Identity Pool, provider, and IAM bindings, see
 [docs/github-actions-gcp-setup.md](docs/github-actions-gcp-setup.md).
 
+Pushes to `main` now deploy through
+[`/.github/workflows/deploy-main.yml`](.github/workflows/deploy-main.yml).
+That workflow uses the `production` GitHub environment and runs automatically
+after the `develop` -> `main` merge completes.
+
 If you promote code by merging `develop` into `main`, protect `main` by
 requiring the existing develop deploy check from
 [`/.github/workflows/deploy-develop.yml`](.github/workflows/deploy-develop.yml).
@@ -171,7 +176,8 @@ To enforce it on `main`:
 
 This blocks PRs into `main` unless the source branch is exactly `develop`, and
 it also blocks merge until the `develop` deploy has already succeeded for that
-commit.
+commit. Once the merge lands on `main`, `deploy-prod` runs against the
+`production` GitHub environment.
 
 ## Endpoints
 
