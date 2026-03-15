@@ -307,6 +307,44 @@ def test_service_dispatches_joined_event_to_whatsapp(
     assert send_request.template_metadata == {"first_name": "Rohan"}
 
 
+@pytest.mark.parametrize(
+    ("payload", "expected_template_name"),
+    [
+        (
+            MemberApprovedWebhookPayload.model_validate(_build_approved_payload()),
+            WhatsAppTemplateName.FUNDA_MEMBERSHIP_APPROVED,
+        ),
+        (
+            MemberRejectedWebhookPayload.model_validate(_build_rejected_payload()),
+            WhatsAppTemplateName.FUNDA_MEMBERSHIP_REJECTED,
+        ),
+    ],
+)
+def test_service_dispatches_non_joined_event_to_whatsapp(
+    payload: BaseMemberWebhookPayload,
+    expected_template_name: WhatsAppTemplateName,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_sender(send_request) -> WhatsAppDispatchResult:
+        captured["send_request"] = send_request
+        return WhatsAppDispatchResult(
+            status="sent",
+            detail="accepted",
+            message_id="wamid.123",
+        )
+
+    monkeypatch.setattr(keyai_webhooks, "send_whatsapp_template_message", fake_sender)
+
+    keyai_webhooks.dispatch_keyai_whatsapp_message(payload=payload)
+
+    send_request = captured["send_request"]
+
+    assert send_request.template_name == expected_template_name
+    assert send_request.template_metadata == {"first_name": "Rohan"}
+
+
 def test_service_dispatches_member_event_to_attio(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

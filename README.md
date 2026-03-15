@@ -129,6 +129,25 @@ If you want to keep the service private:
 make deploy CLOUD_RUN_FLAGS=
 ```
 
+## GitHub Actions deploys
+
+Pushes to `develop` now deploy through
+[`/.github/workflows/deploy-develop.yml`](.github/workflows/deploy-develop.yml).
+The workflow builds the repo Docker image, pushes it to Artifact Registry, and
+deploys it to Cloud Run via `make deploy`.
+
+Configure the `develop` GitHub environment with these values before using it:
+
+- Variables: `GCP_PROJECT_ID`, `GCP_REGION`,
+  `ARTIFACT_REGISTRY_REPOSITORY`, `CLOUD_RUN_SERVICE_NAME`,
+  `GCP_SERVICE_ACCOUNT_EMAIL`
+- Secret: `GCP_WORKLOAD_IDENTITY_PROVIDER`
+
+The deploy service account needs permission to push images to Artifact
+Registry and deploy Cloud Run revisions. The workflow only updates the service
+image; runtime env vars and secrets still need to exist on the Cloud Run
+service or be managed separately.
+
 ## Endpoints
 
 - `GET /health`
