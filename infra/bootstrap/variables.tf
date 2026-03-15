@@ -30,3 +30,9 @@ variable "state_bucket_object_admin_members" {
   type        = list(string)
   default     = []
 }
+
+variable "service_usage_viewer_members" {
+  description = "IAM members that need Service Usage viewer access."
+  type        = list(string)
+  default     = []
+}

@@ -220,6 +220,10 @@ bootstrap workspaces for `dev` and `prod`; otherwise Terraform will try to
 replace one environment's bucket with the other because the bootstrap root uses
 local state.
 
+Each bootstrap workspace also grants `roles/serviceusage.serviceUsageViewer` to
+the deployer SA so Terraform can list and enable APIs. Set
+`service_usage_viewer_members` alongside `state_bucket_object_admin_members`.
+
 Create `infra/bootstrap/prod.tfvars` with:
 
 ```hcl
@@ -228,6 +232,9 @@ region          = "us-central1"
 bucket_name     = "funda-prod-490316-funda-app-tfstate"
 bucket_location = "US"
 state_bucket_object_admin_members = [
+  "serviceAccount:github-deploy@funda-prod-490316.iam.gserviceaccount.com",
+]
+service_usage_viewer_members = [
   "serviceAccount:github-deploy@funda-prod-490316.iam.gserviceaccount.com",
 ]
 
@@ -246,6 +253,9 @@ region          = "us-central1"
 bucket_name     = "stai-485819-funda-app-tfstate"
 bucket_location = "US"
 state_bucket_object_admin_members = [
+  "serviceAccount:github-deploy@stai-485819.iam.gserviceaccount.com",
+]
+service_usage_viewer_members = [
   "serviceAccount:github-deploy@stai-485819.iam.gserviceaccount.com",
 ]
 

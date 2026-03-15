@@ -43,3 +43,11 @@ resource "google_storage_bucket_iam_member" "state_bucket_object_admin" {
   role   = "roles/storage.objectAdmin"
   member = each.value
 }
+
+resource "google_project_iam_member" "service_usage_viewer" {
+  for_each = toset(var.service_usage_viewer_members)
+
+  project = var.project_id
+  role    = "roles/serviceusage.serviceUsageViewer"
+  member  = each.value
+}
