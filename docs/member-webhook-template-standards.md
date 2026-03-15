@@ -7,7 +7,8 @@ for each Key.ai member webhook event defined in
 ## Current Repo Constraints
 
 - The current implementation only sends WhatsApp for `member.joined`.
-- The only registered template today is `funda_signup_confirmation`.
+- The template registry now includes `funda_signup_confirmation`,
+  `funda_membership_approved`, and `funda_membership_rejected`.
 - The sender currently supports body text parameters only. It does not yet
   support buttons, media, or headers.
 
@@ -19,8 +20,8 @@ body parameter: `first_name`.
 | Priority | Event | Status change | Standard template | Category | Parameters | Standard |
 | --- | --- | --- | --- | --- | --- | --- |
 | Core | `member.joined` | `null -> PENDING` | `funda_signup_confirmation` | `UTILITY` | `first_name` | Keep this template, but make the copy clearly say the member is pending review. |
-| Core | `member.approved` | `PENDING -> APPROVED` | `funda_membership_approved` | `UTILITY` | `first_name` | Add this next. It is the clearest lifecycle follow-up after join. |
-| Core | `member.rejected` | `PENDING -> REJECTED` | `funda_membership_rejected` | `UTILITY` | `first_name` | Add this so applicants are not left without an outcome. |
+| Core | `member.approved` | `PENDING -> APPROVED` | `funda_membership_approved` | `UTILITY` | `first_name` | The template is registered. Wire it next so approval closes the loop. |
+| Core | `member.rejected` | `PENDING -> REJECTED` | `funda_membership_rejected` | `UTILITY` | `first_name` | The template is registered. Wire it so applicants receive an outcome. |
 
 ## Standard Copy
 
@@ -76,17 +77,20 @@ there is a clear policy for them.
 
 1. Keep `funda_signup_confirmation` for `member.joined`, but tighten the copy
    so it clearly means "request received and pending review."
-2. Add `funda_membership_approved`.
-3. Add `funda_membership_rejected`.
+2. Wire `funda_membership_approved` to `member.approved`.
+3. Wire `funda_membership_rejected` to `member.rejected`.
 
 ## Implementation Notes For This Repo
 
-If Funda decides to implement the active set above, the repo would need:
+The repo already has:
 
 - New `WhatsAppTemplateName` enum values in
   `funda_app/schemas/whatsapp.py`.
 - New template definitions in
   `funda_app/services/whatsapp_templates.py`.
+
+To fully activate the standard set above, the repo still needs:
+
 - Event-to-template mapping in
   `funda_app/services/keyai_webhooks.py` for the non-joined events.
 

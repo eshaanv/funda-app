@@ -1,4 +1,4 @@
-.PHONY: test-local-webhook run-local-container logs-local-container
+.PHONY: auth test-local-webhook run-local-container logs-local-container
 
 LOCAL_CONTAINER_NAME ?= funda-app-local
 LOCAL_CONTAINER_PORT ?= 8080
@@ -8,6 +8,9 @@ ADC_CONTAINER_PATH ?= /tmp/gcloud/application_default_credentials.json
 LOCAL_WEBHOOK_HOST ?= 127.0.0.1
 LOCAL_WEBHOOK_PORT ?= $(LOCAL_CONTAINER_PORT)
 LOCAL_WEBHOOK_BASE_URL ?= http://$(LOCAL_WEBHOOK_HOST):$(LOCAL_WEBHOOK_PORT)
+
+auth:
+	gcloud auth application-default login
 
 test-local-webhook: run-local-container
 	@echo "Waiting for local container at $(LOCAL_WEBHOOK_BASE_URL)"
@@ -28,9 +31,8 @@ run-local-container: build-image
 	@if [ ! -f "$(LOCAL_CONTAINER_ENV_FILE)" ]; then \
 		echo "Missing $(LOCAL_CONTAINER_ENV_FILE). Create it before starting the local container."; \
 		exit 1; \
-	elif docker ps --format '{{.Names}}' | grep -Fx "$(LOCAL_CONTAINER_NAME)" >/dev/null; then \
-		echo "Local container $(LOCAL_CONTAINER_NAME) is already running."; \
 	else \
+		docker rm -f "$(LOCAL_CONTAINER_NAME)" >/dev/null 2>&1 || true; \
 		if [ -f "$(ADC_SRC)" ]; then \
 			echo "Mounting ADC credentials from $(ADC_SRC)"; \
 			docker run -d --rm \

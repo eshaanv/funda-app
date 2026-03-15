@@ -32,13 +32,21 @@ Run the webhook functional test against the detached local container:
 make test-local-webhook
 ```
 
-`make test-local-webhook` builds the image if needed, starts the container if it
-is not already running, waits for `/health`, then posts the `member.joined`
-functional test payload. The container stays up afterward so you can inspect
-runtime logs. The local container is started with `--env-file .env`, so your
-`.env` file must contain the required integration settings. If local ADC
+`make test-local-webhook` builds the image if needed, starts a fresh container,
+waits for `/health`, then posts the `member.joined` functional test payload.
+The container stays up afterward so you can inspect runtime logs.
+`make run-local-container` always replaces any existing container with the same
+name before starting a fresh one. The local container is started with
+`--env-file .env`, so your `.env` file must contain the required integration
+settings. If local ADC
 credentials exist at `~/.config/gcloud/application_default_credentials.json`,
 the Make target also mounts them into the container for Gemini enrichment.
+
+If you need to create or refresh local ADC credentials first:
+
+```bash
+make auth
+```
 
 To tail the local container logs:
 
@@ -64,6 +72,12 @@ Or use the Make target to build and run the repo image detached:
 
 ```bash
 make run-local-container
+```
+
+If you need to log in for local Gemini-backed flows first:
+
+```bash
+make auth
 ```
 
 You can then inspect the running container logs with:

@@ -6,8 +6,8 @@
 
 **Payload includes:** Full member info + all onboarding Q&A answers
 
-**Current Funda handling:** Return `202 Accepted`, then queue background member
-enrichment followed by WhatsApp template delivery.
+**Current Funda handling:** Return `202 Accepted`, then queue background Attio
+CRM sync, member enrichment, and WhatsApp template delivery in that order.
 
 **Validation note:** `questions[]` is required for `member.joined`. Funda rejects
 joined payloads without it.
@@ -30,8 +30,8 @@ joined payloads without it.
 
 **Payload includes:** Member info + status change only
 
-**Current Funda handling:** Return `202 Accepted` only. No background work is
-currently scheduled.
+**Current Funda handling:** Return `202 Accepted`, then queue background Attio
+CRM sync only.
 
 ``` json
 {
@@ -46,8 +46,8 @@ currently scheduled.
 
 **Trigger:** Admin rejects a pending member
 
-**Current Funda handling:** Return `202 Accepted` only. No background work is
-currently scheduled.
+**Current Funda handling:** Return `202 Accepted`, then queue background Attio
+CRM sync only.
 
 ``` json
 {
@@ -62,8 +62,8 @@ currently scheduled.
 
 **Trigger:** Admin manually removes a member
 
-**Current Funda handling:** Return `202 Accepted` only. No background work is
-currently scheduled.
+**Current Funda handling:** Return `202 Accepted`, then queue background Attio
+CRM sync only.
 
 ``` json
 {
@@ -79,8 +79,8 @@ currently scheduled.
 **Trigger:** Member requested to leave and scheduler window expired\
 (10 minutes in dev / 72 hours in production)
 
-**Current Funda handling:** Return `202 Accepted` only. No background work is
-currently scheduled.
+**Current Funda handling:** Return `202 Accepted`, then queue background Attio
+CRM sync only.
 
 ``` json
 {

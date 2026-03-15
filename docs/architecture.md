@@ -1,8 +1,8 @@
 # High-Level Invocation Flow
 
 This diagram intentionally stays high level. It shows the one public webhook
-endpoint, the immediate `202` acknowledgement returned for every event, and the
-extra background flow used for `member.joined`.
+endpoint, the immediate `202` acknowledgement returned for every event, the
+Attio sync that runs for all member events, and the extra joined-member steps.
 
 ```mermaid
 sequenceDiagram
