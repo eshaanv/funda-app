@@ -14,3 +14,18 @@ wheels/
 .envrc
 .ruff_cache/
 .pytest_cache/
+outputs/attio_schema/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+*.tfplan
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+backend.hcl
