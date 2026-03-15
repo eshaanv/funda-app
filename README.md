@@ -13,9 +13,8 @@ export ATTIO_FOUNDER_LIFECYCLE_LIST_ID=your-attio-list-id
 uv run uvicorn funda_app.main:app --reload
 ```
 
-For end-to-end `member.joined` processing, the runtime also needs Google Cloud
-application default credentials with access to Vertex AI because the background
-enrichment step uses Gemini before the WhatsApp send.
+The current webhook flow does not require Google Cloud application default
+credentials because the joined-member Gemini enrichment step is disabled.
 
 ## Validate
 
@@ -138,26 +137,22 @@ make deploy CLOUD_RUN_FLAGS=
 The Key.ai webhook endpoint accepts typed member event payloads, routes all
 member events through the payload's `event` field, and returns `202 Accepted`.
 Every member event now queues an Attio CRM sync in the background. For
-`member.joined`, the background flow continues with Gemini enrichment and
-WhatsApp template delivery after the CRM sync completes.
+`member.joined`, `member.approved`, and `member.rejected`, the background flow
+also sends a WhatsApp template after the CRM sync completes.
 
 ## Joined member background flow
 
-`member.joined` is the only event that triggers the full post-acknowledgement
-workflow.
+`member.joined` currently runs the signup WhatsApp flow after the Attio sync.
 
 - Funda immediately returns `202 Accepted` and runs the rest in a background task.
 - The Attio sync mirrors the member into the `Funda Founder Lifecycle` list.
-- The enrichment step uses Gemini to generate a short operator summary.
-- Enrichment looks for a LinkedIn URL in `member.linkedinUrl` first, then falls
-  back to joined-question answers whose prompt contains `linked`.
-- Company name and company stage are taken from top-level member fields when
-  present, otherwise from joined-question answers.
-- If no valid LinkedIn URL is available, enrichment is skipped.
-- The WhatsApp send still runs after the enrichment attempt.
+- The joined-member Gemini enrichment step is currently disabled in the webhook
+  path.
+- The WhatsApp send uses the `funda_signup_confirmation` template.
 
-All other member events (`approved`, `rejected`, `removed`, `left`) currently
-stop after the background Attio sync.
+`member.approved` and `member.rejected` also send WhatsApp after the Attio
+sync. `member.removed` and `member.left` currently stop after the background
+Attio sync.
 
 ## Attio CRM sync
 
@@ -189,8 +184,13 @@ your local environment.
 
 ## WhatsApp template dispatch
 
-`member.joined` now schedules an in-process background task that sends the
-approved `funda_signup_confirmation` WhatsApp template through Meta's Graph API.
+Funda now sends Meta WhatsApp templates for `member.joined`,
+`member.approved`, and `member.rejected`. The current template mapping is:
+
+- `member.joined` -> `funda_signup_confirmation`
+- `member.approved` -> `funda_membership_approved1`
+- `member.rejected` -> `funda_membership_rejected`
+
 The template registry lives in
 [`funda_app/services/whatsapp_templates.py`](funda_app/services/whatsapp_templates.py),
 and the sender expects these environment variables:
@@ -201,10 +201,8 @@ and the sender expects these environment variables:
 - `WHATSAPP_BASE_URL` (optional, defaults to `https://graph.facebook.com`)
 - `WHATSAPP_TIMEOUT_SECONDS` (optional, defaults to `10`)
 
-The enrichment step is separate from the WhatsApp sender. It uses the Gemini
-client configured in `funda_app/agents/models.py` and therefore requires Google
-credentials with Vertex AI access in any environment where `member.joined`
-background tasks should run successfully.
+The joined-member Gemini enrichment code remains in the repo, but it is
+currently disabled in the webhook background flow.
 
 ## Architecture
 

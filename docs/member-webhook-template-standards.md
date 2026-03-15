@@ -6,9 +6,10 @@ for each Key.ai member webhook event defined in
 
 ## Current Repo Constraints
 
-- The current implementation only sends WhatsApp for `member.joined`.
+- The current implementation sends WhatsApp for `member.joined`,
+  `member.approved`, and `member.rejected`.
 - The template registry now includes `funda_signup_confirmation`,
-  `funda_membership_approved`, and `funda_membership_rejected`.
+  `funda_membership_approved1`, and `funda_membership_rejected`.
 - The sender currently supports body text parameters only. It does not yet
   support buttons, media, or headers.
 
@@ -20,8 +21,8 @@ body parameter: `first_name`.
 | Priority | Event | Status change | Standard template | Category | Parameters | Standard |
 | --- | --- | --- | --- | --- | --- | --- |
 | Core | `member.joined` | `null -> PENDING` | `funda_signup_confirmation` | `UTILITY` | `first_name` | Keep this template, but make the copy clearly say the member is pending review. |
-| Core | `member.approved` | `PENDING -> APPROVED` | `funda_membership_approved` | `UTILITY` | `first_name` | The template is registered. Wire it next so approval closes the loop. |
-| Core | `member.rejected` | `PENDING -> REJECTED` | `funda_membership_rejected` | `UTILITY` | `first_name` | The template is registered. Wire it so applicants receive an outcome. |
+| Core | `member.approved` | `PENDING -> APPROVED` | `funda_membership_approved1` | `UTILITY` | `first_name` | This template is currently wired for approval events. |
+| Core | `member.rejected` | `PENDING -> REJECTED` | `funda_membership_rejected` | `UTILITY` | `first_name` | This template is currently wired for rejection events. |
 
 ## Standard Copy
 
@@ -43,7 +44,7 @@ Hi {{1}}, thanks for applying to join Funda. We have received your request and i
 
 ### member.approved
 
-**Template name:** `funda_membership_approved`
+**Template name:** `funda_membership_approved1`
 
 **Why:** This is the highest-value follow-up after `member.joined`. It closes
 the loop and confirms the member is now in.
@@ -77,8 +78,8 @@ there is a clear policy for them.
 
 1. Keep `funda_signup_confirmation` for `member.joined`, but tighten the copy
    so it clearly means "request received and pending review."
-2. Wire `funda_membership_approved` to `member.approved`.
-3. Wire `funda_membership_rejected` to `member.rejected`.
+2. Keep `funda_membership_approved1` wired to `member.approved`.
+3. Keep `funda_membership_rejected` wired to `member.rejected`.
 
 ## Implementation Notes For This Repo
 
@@ -89,9 +90,10 @@ The repo already has:
 - New template definitions in
   `funda_app/services/whatsapp_templates.py`.
 
-To fully activate the standard set above, the repo still needs:
+The repo also already has:
 
 - Event-to-template mapping in
-  `funda_app/services/keyai_webhooks.py` for the non-joined events.
+  `funda_app/services/keyai_webhooks.py` for `member.joined`,
+  `member.approved`, and `member.rejected`.
 
-Today, only `member.joined` is wired for background WhatsApp dispatch.
+Today, `member.removed` and `member.left` do not trigger WhatsApp dispatch.

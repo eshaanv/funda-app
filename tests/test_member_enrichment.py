@@ -167,7 +167,7 @@ def test_enrich_member_returns_failed_record_when_gemini_has_no_response(
     assert result.reason == "gemini_no_response"
 
 
-def test_dispatch_keyai_joined_member_tasks_runs_crm_before_enrichment_and_whatsapp(
+def test_dispatch_keyai_joined_member_tasks_runs_crm_before_whatsapp(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     order: list[str] = []
@@ -180,15 +180,10 @@ def test_dispatch_keyai_joined_member_tasks_runs_crm_before_enrichment_and_whats
     )
     monkeypatch.setattr(
         keyai_webhooks,
-        "dispatch_member_joined_enrichment",
-        lambda joined_payload: order.append("enrichment"),
-    )
-    monkeypatch.setattr(
-        keyai_webhooks,
         "dispatch_keyai_whatsapp_message",
         lambda joined_payload: order.append("whatsapp"),
     )
 
     keyai_webhooks.dispatch_keyai_joined_member_tasks(payload)
 
-    assert order == ["crm", "enrichment", "whatsapp"]
+    assert order == ["crm", "whatsapp"]

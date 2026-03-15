@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 class WhatsAppTemplateName(StrEnum):
     FUNDA_SIGNUP_CONFIRMATION = "funda_signup_confirmation"
-    FUNDA_MEMBERSHIP_APPROVED = "funda_membership_approved"
+    FUNDA_MEMBERSHIP_APPROVED = "funda_membership_approved1"
     FUNDA_MEMBERSHIP_REJECTED = "funda_membership_rejected"
 
 

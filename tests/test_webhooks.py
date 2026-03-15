@@ -8,6 +8,7 @@ from funda_app.schemas.webhooks import (
     BaseMemberWebhookPayload,
     MemberApprovedWebhookPayload,
     MemberJoinedWebhookPayload,
+    MemberRejectedWebhookPayload,
     MemberWebhookEvent,
     WebhookAcceptedResponse,
 )
@@ -86,6 +87,16 @@ def _build_approved_payload() -> dict[str, object]:
         },
         "occurredAt": "2026-03-13T15:05:32.436Z",
     }
+
+
+def _build_rejected_payload() -> dict[str, object]:
+    payload = _build_approved_payload()
+    payload["event"] = "member.rejected"
+    payload["status"] = {
+        "new": "REJECTED",
+        "old": "PENDING",
+    }
+    return payload
 
 
 def test_users_webhook_accepts_json_payload(
@@ -246,12 +257,29 @@ def test_service_builds_attio_sync_request_with_question_fallbacks() -> None:
     assert sync_request.company.stage == "Seed"
 
 
-def test_service_skips_non_joined_whatsapp_dispatch_request() -> None:
-    send_request = keyai_webhooks.build_keyai_whatsapp_send_request(
-        payload=MemberApprovedWebhookPayload.model_validate(_build_approved_payload()),
-    )
+@pytest.mark.parametrize(
+    ("payload", "expected_template_name"),
+    [
+        (
+            MemberApprovedWebhookPayload.model_validate(_build_approved_payload()),
+            WhatsAppTemplateName.FUNDA_MEMBERSHIP_APPROVED,
+        ),
+        (
+            MemberRejectedWebhookPayload.model_validate(_build_rejected_payload()),
+            WhatsAppTemplateName.FUNDA_MEMBERSHIP_REJECTED,
+        ),
+    ],
+)
+def test_service_builds_non_joined_whatsapp_dispatch_request(
+    payload: BaseMemberWebhookPayload,
+    expected_template_name: WhatsAppTemplateName,
+) -> None:
+    send_request = keyai_webhooks.build_keyai_whatsapp_send_request(payload=payload)
 
-    assert send_request is None
+    assert send_request is not None
+    assert send_request.to == "8511152215"
+    assert send_request.template_name == expected_template_name
+    assert send_request.template_metadata == {"first_name": "Rohan"}
 
 
 def test_service_dispatches_joined_event_to_whatsapp(

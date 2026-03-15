@@ -20,7 +20,6 @@ from funda_app.schemas.whatsapp import (
     WhatsAppTemplateSendRequest,
 )
 from funda_app.services.attio import normalize_phone_number, sync_attio_member
-from funda_app.services.member_enrichment import dispatch_member_joined_enrichment
 from funda_app.services.whatsapp import send_whatsapp_template_message
 
 logger = logging.getLogger(__name__)
@@ -68,7 +67,9 @@ def build_keyai_whatsapp_send_request(
         WhatsAppTemplateSendRequest | None: Template send request for supported
             events, otherwise None.
     """
-    if payload.event != MemberWebhookEvent.MEMBER_JOINED:
+    template_name = _get_whatsapp_template_name(payload)
+
+    if template_name is None:
         return None
 
     if not payload.member.phone.strip():
@@ -76,7 +77,7 @@ def build_keyai_whatsapp_send_request(
 
     return WhatsAppTemplateSendRequest(
         to=payload.member.phone,
-        template_name=WhatsAppTemplateName.FUNDA_SIGNUP_CONFIRMATION,
+        template_name=template_name,
         template_metadata={
             "first_name": payload.member.firstName,
         },
@@ -134,10 +135,11 @@ def dispatch_keyai_member_tasks(payload: BaseMemberWebhookPayload) -> None:
     """
     dispatch_keyai_attio_sync(payload)
 
-    if payload.event != MemberWebhookEvent.MEMBER_JOINED:
+    if payload.event == MemberWebhookEvent.MEMBER_JOINED:
+        # TODO: Enable joined-member enrichment once we have a stable way to test it.
+        dispatch_keyai_whatsapp_message(payload)
         return
 
-    dispatch_member_joined_enrichment(payload)
     dispatch_keyai_whatsapp_message(payload)
 
 
@@ -247,6 +249,21 @@ def _log_attio_sync_result(
         result.company_record_id or "",
         result.lifecycle_entry_id,
     )
+
+
+def _get_whatsapp_template_name(
+    payload: BaseMemberWebhookPayload,
+) -> WhatsAppTemplateName | None:
+    if payload.event == MemberWebhookEvent.MEMBER_JOINED:
+        return WhatsAppTemplateName.FUNDA_SIGNUP_CONFIRMATION
+
+    if payload.event == MemberWebhookEvent.MEMBER_APPROVED:
+        return WhatsAppTemplateName.FUNDA_MEMBERSHIP_APPROVED
+
+    if payload.event == MemberWebhookEvent.MEMBER_REJECTED:
+        return WhatsAppTemplateName.FUNDA_MEMBERSHIP_REJECTED
+
+    return None
 
 
 def _get_linkedin_url(payload: BaseMemberWebhookPayload) -> str | None:
