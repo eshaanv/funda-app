@@ -16,6 +16,7 @@ def test_plan_attio_schema_changes_creates_missing_list_and_custom_attributes() 
             _live_attribute("email_addresses", "Email Addresses", "email-address"),
             _live_attribute("name", "Name", "personal-name"),
             _live_attribute("phone_numbers", "Phone Numbers", "phone-number"),
+            _live_attribute("linkedin", "LinkedIn", "text"),
             _live_attribute("company", "Company", "record-reference"),
         ),
         company_attributes=(_live_attribute("name", "Name", "text"),),
@@ -25,18 +26,17 @@ def test_plan_attio_schema_changes_creates_missing_list_and_custom_attributes() 
     plan = attio_schema.plan_attio_schema_changes(snapshot=snapshot)
 
     assert not plan.issues
-    assert len(plan.actions) == 15
+    assert len(plan.actions) == 14
     assert [action.kind for action in plan.actions[:4]] == [
         "create_attribute",
         "create_attribute",
-        "create_attribute",
         "create_list",
+        "create_attribute",
     ]
     assert {
         action.api_slug for action in plan.actions if action.api_slug is not None
     } == {
         "keyai_member_id",
-        "linkedin",
         "company_stage",
         "member_status",
         "last_keyai_event",
@@ -58,6 +58,7 @@ def test_plan_attio_schema_changes_reports_missing_required_and_type_drift() -> 
             _live_attribute("email_addresses", "Email Addresses", "email-address"),
             _live_attribute("name", "Name", "personal-name"),
             _live_attribute("phone_numbers", "Phone Numbers", "phone-number"),
+            _live_attribute("linkedin", "LinkedIn", "text"),
             _live_attribute("keyai_member_id", "Key.ai Member ID", "timestamp"),
         ),
         company_attributes=(_live_attribute("name", "Name", "text"),),
@@ -94,7 +95,7 @@ def test_plan_attio_schema_changes_can_archive_extra_custom_attributes() -> None
             _live_attribute("phone_numbers", "Phone Numbers", "phone-number"),
             _live_attribute("company", "Company", "record-reference"),
             _live_attribute("keyai_member_id", "Key.ai Member ID", "text"),
-            _live_attribute("linkedin", "LinkedIn URL", "text"),
+            _live_attribute("linkedin", "LinkedIn", "text"),
             _live_attribute(
                 "favorite_color", "Favorite Color", "text", is_system=False
             ),
@@ -158,6 +159,7 @@ def test_apply_attio_schema_plan_creates_list_before_lifecycle_attributes(
                 _live_attribute("email_addresses", "Email Addresses", "email-address"),
                 _live_attribute("name", "Name", "personal-name"),
                 _live_attribute("phone_numbers", "Phone Numbers", "phone-number"),
+                _live_attribute("linkedin", "LinkedIn", "text"),
                 _live_attribute("company", "Company", "record-reference"),
             ),
             company_attributes=(_live_attribute("name", "Name", "text"),),
@@ -175,11 +177,9 @@ def test_apply_attio_schema_plan_creates_list_before_lifecycle_attributes(
     )
 
     lifecycle_attribute_urls = [
-        url
-        for _, url in captured_calls
-        if "/lists/list-123/attributes" in url
+        url for _, url in captured_calls if "/lists/list-123/attributes" in url
     ]
-    assert captured_calls[3] == ("POST", "https://api.attio.com/v2/lists")
+    assert captured_calls[2] == ("POST", "https://api.attio.com/v2/lists")
     assert lifecycle_attribute_urls
     assert captured_calls.index(
         ("POST", "https://api.attio.com/v2/lists")
@@ -191,6 +191,12 @@ def test_attio_attribute_definition_payload_includes_config() -> None:
     payload = ATTIO_SCHEMA.lifecycle.custom_attributes()[0].create_payload()
 
     assert payload["config"] == {}
+
+
+def test_attio_list_definition_member_access_payload() -> None:
+    payload = ATTIO_SCHEMA.lifecycle.list_definition().create_payload()
+
+    assert payload["workspace_member_access"] == [{"member_access": "read-and-write"}]
 
 
 def test_attio_attribute_update_payload_excludes_is_multiselect() -> None:

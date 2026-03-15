@@ -193,7 +193,9 @@ def apply_attio_schema_plan(
         issue_messages = "; ".join(issue.message for issue in plan.issues)
         raise ValueError(f"Attio schema plan has blocking issues: {issue_messages}")
 
-    lifecycle_list_identifier = plan.lifecycle_list_id or ATTIO_SCHEMA.lifecycle.list_api_slug
+    lifecycle_list_identifier = (
+        plan.lifecycle_list_id or ATTIO_SCHEMA.lifecycle.list_api_slug
+    )
 
     for action in plan.actions:
         if action.kind == "create_list":
@@ -224,7 +226,10 @@ def apply_attio_schema_plan(
             raise ValueError("Attribute schema actions require an attribute slug")
 
         target_identifier = action.identifier
-        if action.target == "lists" and target_identifier == ATTIO_SCHEMA.lifecycle.list_api_slug:
+        if (
+            action.target == "lists"
+            and target_identifier == ATTIO_SCHEMA.lifecycle.list_api_slug
+        ):
             target_identifier = lifecycle_list_identifier
 
         if action.kind == "create_attribute":
@@ -502,7 +507,9 @@ def _normalize_parent_objects(parent_object: object) -> tuple[str, ...]:
 
 def _validate_attio_api_key(settings: AppSettings) -> None:
     if settings.attio_api_key is None or not settings.attio_api_key.strip():
-        env_var_name = "ATTIO_API_KEY_PROD" if settings.app_env == "prod" else "ATTIO_API_KEY_DEV"
+        env_var_name = (
+            "ATTIO_API_KEY_PROD" if settings.app_env == "prod" else "ATTIO_API_KEY_DEV"
+        )
         raise ValueError(f"{env_var_name} is required")
 
 

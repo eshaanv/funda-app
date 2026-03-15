@@ -100,6 +100,7 @@ class AttioListDefinition(BaseModel):
     api_slug: str
     parent_object: str
     workspace_access: str = "read-and-write"
+    workspace_member_access: tuple[str, ...] = ("read-and-write",)
 
     def create_payload(self) -> dict[str, object]:
         """
@@ -113,6 +114,9 @@ class AttioListDefinition(BaseModel):
             "api_slug": self.api_slug,
             "parent_object": self.parent_object,
             "workspace_access": self.workspace_access,
+            "workspace_member_access": [
+                {"member_access": value} for value in self.workspace_member_access
+            ],
         }
 
     def update_payload(self) -> dict[str, object]:
@@ -126,6 +130,9 @@ class AttioListDefinition(BaseModel):
             "name": self.name,
             "api_slug": self.api_slug,
             "workspace_access": self.workspace_access,
+            "workspace_member_access": [
+                {"member_access": value} for value in self.workspace_member_access
+            ],
         }
 
 
@@ -246,6 +253,7 @@ class AttioPersonSchema(BaseModel):
             self.email_attribute,
             self.name_attribute,
             self.phone_attribute,
+            self.linkedin_attribute,
             self.company_relationship_attribute,
         )
 
@@ -261,11 +269,6 @@ class AttioPersonSchema(BaseModel):
                 title="Key.ai Member ID",
                 api_slug=self.external_id_attribute,
                 description="Stable member identifier from Key.ai.",
-            ),
-            AttioAttributeDefinition(
-                title="LinkedIn URL",
-                api_slug=self.linkedin_attribute,
-                description="LinkedIn profile URL from Key.ai.",
             ),
         )
 
