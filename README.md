@@ -74,6 +74,15 @@ Or use the Make target to build and run the repo image detached:
 make run-local-container
 ```
 
+Make-based image builds now pass `BUILD_IMAGE_FLAGS`, which defaults to
+`--pull --no-cache` so local and deploy builds start from a fresh image build.
+If you want to allow cached Docker layers for a specific run, override it:
+
+```bash
+make run-local-container BUILD_IMAGE_FLAGS=
+make deploy BUILD_IMAGE_FLAGS=
+```
+
 If you need to log in for local Gemini-backed flows first:
 
 ```bash
