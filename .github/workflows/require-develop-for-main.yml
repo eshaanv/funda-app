@@ -1,0 +1,23 @@
+name: Restrict main merges to develop
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  require-develop-head:
+    name: require-develop-head
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate PR source branch
+        shell: bash
+        run: |
+          if [ "${{ github.head_ref }}" != "develop" ]; then
+            echo "::error::Pull requests into main must come from the develop branch. Received: ${{ github.head_ref }}"
+            exit 1
+          fi
