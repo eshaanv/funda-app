@@ -1,4 +1,5 @@
 .PHONY: auth test-local-webhook run-local-container logs-local-container
+.PHONY: attio-founder-lifecycle-attributes attio-people-attributes attio-company-attributes
 
 LOCAL_CONTAINER_NAME ?= funda-app-local
 LOCAL_CONTAINER_PORT ?= 8080
@@ -8,9 +9,32 @@ ADC_CONTAINER_PATH ?= /tmp/gcloud/application_default_credentials.json
 LOCAL_WEBHOOK_HOST ?= 127.0.0.1
 LOCAL_WEBHOOK_PORT ?= $(LOCAL_CONTAINER_PORT)
 LOCAL_WEBHOOK_BASE_URL ?= http://$(LOCAL_WEBHOOK_HOST):$(LOCAL_WEBHOOK_PORT)
+ATTIO_BASE_URL ?= https://api.attio.com/v2
 
 auth:
 	gcloud auth application-default login
+
+attio-founder-lifecycle-attributes:
+	@test -n "$(ATTIO_API_KEY)" || { echo "ATTIO_API_KEY is required"; exit 1; }
+	@test -n "$(ATTIO_FOUNDER_LIFECYCLE_LIST_ID)" || { echo "ATTIO_FOUNDER_LIFECYCLE_LIST_ID is required"; exit 1; }
+	curl --request GET \
+		--url "$(ATTIO_BASE_URL)/lists/$(ATTIO_FOUNDER_LIFECYCLE_LIST_ID)/attributes" \
+		--header "Authorization: Bearer $(ATTIO_API_KEY)" \
+	| jq '.data[] | {title, api_slug, type}'
+
+attio-people-attributes:
+	@test -n "$(ATTIO_API_KEY)" || { echo "ATTIO_API_KEY is required"; exit 1; }
+	curl --request GET \
+		--url "$(ATTIO_BASE_URL)/objects/people/attributes" \
+		--header "Authorization: Bearer $(ATTIO_API_KEY)" \
+	| jq '.data[] | {title, api_slug, type}'
+
+attio-company-attributes:
+	@test -n "$(ATTIO_API_KEY)" || { echo "ATTIO_API_KEY is required"; exit 1; }
+	curl --request GET \
+		--url "$(ATTIO_BASE_URL)/objects/companies/attributes" \
+		--header "Authorization: Bearer $(ATTIO_API_KEY)" \
+	| jq '.data[] | {title, api_slug, type}'
 
 test-local-webhook: run-local-container
 	@echo "Waiting for local container at $(LOCAL_WEBHOOK_BASE_URL)"

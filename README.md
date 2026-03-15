@@ -176,6 +176,17 @@ The Attio sync expects these environment variables:
 - `ATTIO_BASE_URL` (optional, defaults to `https://api.attio.com/v2`)
 - `ATTIO_TIMEOUT_SECONDS` (optional, defaults to `10`)
 
+To inspect the current Attio attribute schema with the same environment values:
+
+```bash
+make attio-founder-lifecycle-attributes
+make attio-people-attributes
+make attio-company-attributes
+```
+
+These helpers shell out to `curl` and `jq`, so both need to be available in
+your local environment.
+
 ## WhatsApp template dispatch
 
 `member.joined` now schedules an in-process background task that sends the
