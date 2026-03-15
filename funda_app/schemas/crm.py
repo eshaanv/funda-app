@@ -13,11 +13,13 @@ class AttioPersonSyncPayload(BaseModel):
     last_name: str
     phone: str | None = None
     linkedin_url: str | None = None
+    job_title: str | None = None
 
 
 class AttioCompanySyncPayload(BaseModel):
     name: str
     stage: str | None = None
+    company_website: str | None = None
 
 
 class AttioLifecycleSyncRequest(BaseModel):
@@ -48,6 +50,7 @@ class AttioPersonSchema(BaseModel):
     phone_attribute: str = "phone_numbers"
     external_id_attribute: str = "keyai_member_id"
     linkedin_attribute: str = "linkedin"
+    job_title_attribute: str = "job_title"
     company_relationship_attribute: str = "company"
 
 
@@ -57,6 +60,7 @@ class AttioCompanySchema(BaseModel):
     object_slug: str = "companies"
     name_attribute: str = "name"
     stage_attribute: str = "company_stage"
+    company_website_attribute: str = "company_website"
 
 
 class AttioLifecycleSchema(BaseModel):

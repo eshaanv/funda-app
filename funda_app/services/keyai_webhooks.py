@@ -11,7 +11,6 @@ from funda_app.schemas.webhooks import (
     MemberJoinedWebhookPayload,
     MemberWebhookPayload,
     MemberWebhookEvent,
-    MemberQuestionPayload,
     WebhookAcceptedResponse,
 )
 from funda_app.schemas.whatsapp import (
@@ -20,6 +19,10 @@ from funda_app.schemas.whatsapp import (
     WhatsAppTemplateSendRequest,
 )
 from funda_app.services.attio import normalize_phone_number, sync_attio_member
+from funda_app.services.keyai_questions import (
+    KeyaiQuestionField,
+    get_question_answer,
+)
 from funda_app.services.whatsapp import send_whatsapp_template_message
 
 logger = logging.getLogger(__name__)
@@ -98,12 +101,14 @@ def build_keyai_attio_sync_request(
     """
     company_name = _get_company_name(payload)
     company_stage = _get_company_stage(payload)
+    company_website = _get_company_website_domain(payload)
     company = None
 
     if company_name is not None:
         company = AttioCompanySyncPayload(
             name=company_name,
             stage=company_stage,
+            company_website=company_website,
         )
 
     return AttioLifecycleSyncRequest(
@@ -121,6 +126,7 @@ def build_keyai_attio_sync_request(
             last_name=payload.member.lastName,
             phone=normalize_phone_number(payload.member.phone),
             linkedin_url=_get_linkedin_url(payload),
+            job_title=_get_job_title(payload),
         ),
         company=company,
     )
@@ -137,7 +143,7 @@ def dispatch_keyai_member_tasks(payload: BaseMemberWebhookPayload) -> None:
 
     if payload.event == MemberWebhookEvent.MEMBER_JOINED:
         # TODO: Enable joined-member enrichment once we have a stable way to test it.
-        # dispatch_keyai_whatsapp_message(payload)
+        dispatch_keyai_whatsapp_message(payload)
         return
 
     dispatch_keyai_whatsapp_message(payload)
@@ -270,46 +276,37 @@ def _get_linkedin_url(payload: BaseMemberWebhookPayload) -> str | None:
     if payload.member.linkedinUrl and payload.member.linkedinUrl.strip():
         return payload.member.linkedinUrl.strip()
 
-    question_value = _find_answer(payload.questions, "linked")
-    if question_value is None or not question_value.strip():
+    value = get_question_answer(payload.questions, KeyaiQuestionField.LINKEDIN_URL)
+    if value is None or not value.strip():
         return None
-
-    return question_value.strip()
+    return value.strip()
 
 
 def _get_company_name(payload: BaseMemberWebhookPayload) -> str | None:
     if payload.member.companyName and payload.member.companyName.strip():
         return payload.member.companyName.strip()
 
-    question_value = _find_answer(payload.questions, "company name")
-    if question_value is None or not question_value.strip():
+    value = get_question_answer(payload.questions, KeyaiQuestionField.COMPANY_NAME)
+    if value is None or not value.strip():
         return None
-
-    return question_value.strip()
+    return value.strip()
 
 
 def _get_company_stage(payload: BaseMemberWebhookPayload) -> str | None:
     if payload.member.companyStage and payload.member.companyStage.strip():
         return payload.member.companyStage.strip()
 
-    question_value = _find_answer(payload.questions, "funding stage")
-    if question_value is None or not question_value.strip():
+    value = get_question_answer(payload.questions, KeyaiQuestionField.FUNDING_STAGE)
+    if value is None or not value.strip():
         return None
+    return value.strip()
 
-    return question_value.strip()
+
+def _get_job_title(payload: BaseMemberWebhookPayload) -> str | None:
+    return get_question_answer(payload.questions, KeyaiQuestionField.JOB_TITLE)
 
 
-def _find_answer(
-    questions: list[MemberQuestionPayload] | None,
-    pattern: str,
-) -> str | None:
-    if questions is None:
-        return None
-
-    lowered_pattern = pattern.lower()
-
-    for item in questions:
-        if lowered_pattern in item.question.lower():
-            return item.answer
-
-    return None
+def _get_company_website_domain(payload: BaseMemberWebhookPayload) -> str | None:
+    return get_question_answer(
+        payload.questions, KeyaiQuestionField.COMPANY_WEBSITE_DOMAIN
+    )

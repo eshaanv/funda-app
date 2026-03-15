@@ -25,14 +25,14 @@ def test_member_joined_local_fastapi_webhook() -> None:
                 "event": "member.joined",
                 "member": {
                     "id": "14b8d602-1eee-11f1-b904-0242ac14000a",
-                    "email": "rohan+1@key.ai",
+                    "email": "eshaanvipani1@gmail.com",
                     "phone": "9256400611",
                     "fullName": "Eshaan Vipani",
                     "lastName": "Vipani",
                     "firstName": "Eshaan",
-                    "companyName": None,
+                    "companyName": "Wells Fargo",
                     "linkedinUrl": "https://www.linkedin.com/in/eshaan-vipani/",
-                    "companyStage": None,
+                    "companyStage": "Public Company",
                 },
                 "status": {
                     "new": "PENDING",
@@ -46,16 +46,32 @@ def test_member_joined_local_fastapi_webhook() -> None:
                 },
                 "questions": [
                     {
-                        "answer": "https://www.linkedin.com/in/eshaan-vipani/",
-                        "question": "What is your linked-in url?",
+                        "question": "Linkedin URL?",
+                        "answer": "linkedin.com/in/eshaan-vipani/",
                     },
                     {
-                        "answer": "Example Corp",
-                        "question": "What is your company name?",
+                        "question": "WhatsApp Phone Number? (Needed to add you into our WhatsApp community)",
+                        "answer": "9256400611",
                     },
                     {
-                        "answer": "Seed",
-                        "question": "What is the funding stage?",
+                        "question": "Company Name?",
+                        "answer": "Wells Fargo",
+                    },
+                    {
+                        "question": "Company Website Domain? (e.g. www.newco.com)",
+                        "answer": "https://www.wellsfargo.com/",
+                    },
+                    {
+                        "question": "Job Title?",
+                        "answer": "Software Engineer",
+                    },
+                    {
+                        "question": "Funding Stage?",
+                        "answer": "Prefer not to say",
+                    },
+                    {
+                        "question": "What describes you best?",
+                        "answer": "Service Provider",
                     },
                 ],
                 "occurredAt": "2026-03-13T15:05:32.436Z",

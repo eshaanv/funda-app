@@ -279,6 +279,11 @@ def _build_person_values(
             sync_request.person.linkedin_url
         )
 
+    if sync_request.person.job_title is not None:
+        values[ATTIO_SCHEMA.person.job_title_attribute] = (
+            sync_request.person.job_title
+        )
+
     if company_record_id is not None:
         values[ATTIO_SCHEMA.person.company_relationship_attribute] = [
             {
@@ -296,6 +301,10 @@ def _build_company_values(
     values: dict[str, object] = {ATTIO_SCHEMA.company.name_attribute: company.name}
     if company.stage is not None:
         values[ATTIO_SCHEMA.company.stage_attribute] = company.stage
+    if company.company_website is not None:
+        values[ATTIO_SCHEMA.company.company_website_attribute] = (
+            company.company_website
+        )
 
     return values
 
