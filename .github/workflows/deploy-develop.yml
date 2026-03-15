@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   deploy:
+    name: deploy-dev
     runs-on: ubuntu-latest
     environment: develop
     env:

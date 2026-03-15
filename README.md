@@ -148,6 +148,31 @@ Registry and deploy Cloud Run revisions. The workflow only updates the service
 image; runtime env vars and secrets still need to exist on the Cloud Run
 service or be managed separately.
 
+For the full one-time Google Cloud setup commands, including service account,
+Workload Identity Pool, provider, and IAM bindings, see
+[docs/github-actions-gcp-setup.md](docs/github-actions-gcp-setup.md).
+
+If you promote code by merging `develop` into `main`, protect `main` by
+requiring the existing develop deploy check from
+[`/.github/workflows/deploy-develop.yml`](.github/workflows/deploy-develop.yml).
+That keeps `main` blocked until the exact `develop` head commit has already
+deployed successfully to the dev environment.
+
+To enforce it on `main`:
+
+1. Push to `develop` once so the deploy check exists in GitHub.
+2. In GitHub, open the `main` branch ruleset or branch protection rule.
+3. Enable pull requests before merge.
+4. Enable required status checks.
+5. Add `deploy-dev` as a required check.
+6. Add `require-develop-head` from
+   [`/.github/workflows/require-develop-for-main.yml`](.github/workflows/require-develop-for-main.yml)
+   as a required check.
+
+This blocks PRs into `main` unless the source branch is exactly `develop`, and
+it also blocks merge until the `develop` deploy has already succeeded for that
+commit.
+
 ## Endpoints
 
 - `GET /health`
