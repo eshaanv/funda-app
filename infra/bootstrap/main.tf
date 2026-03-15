@@ -35,3 +35,11 @@ resource "google_storage_bucket" "terraform_state" {
 
   depends_on = [google_project_service.services]
 }
+
+resource "google_storage_bucket_iam_member" "state_bucket_object_admin" {
+  for_each = toset(var.state_bucket_object_admin_members)
+
+  bucket = google_storage_bucket.terraform_state.name
+  role   = "roles/storage.objectAdmin"
+  member = each.value
+}

@@ -70,19 +70,6 @@ class AppSettings(BaseSettings):
         return self.attio_api_key_dev
 
     @property
-    def attio_api_key_env_var(self) -> str:
-        """
-        Returns the Attio API key environment variable for the active environment.
-
-        Returns:
-            str: Expected Attio API key env var name.
-        """
-        if self.app_env == "prod":
-            return "ATTIO_API_KEY_PROD"
-
-        return "ATTIO_API_KEY_DEV"
-
-    @property
     def attio_founder_lifecycle_list_id(self) -> str | None:
         """
         Returns the lifecycle list ID for the active environment.
@@ -94,19 +81,6 @@ class AppSettings(BaseSettings):
             return self.attio_founder_lifecycle_list_id_prod
 
         return self.attio_founder_lifecycle_list_id_dev
-
-    @property
-    def attio_founder_lifecycle_list_id_env_var(self) -> str:
-        """
-        Returns the lifecycle list ID environment variable for the active environment.
-
-        Returns:
-            str: Expected lifecycle list ID env var name.
-        """
-        if self.app_env == "prod":
-            return "ATTIO_FOUNDER_LIFECYCLE_LIST_ID_PROD"
-
-        return "ATTIO_FOUNDER_LIFECYCLE_LIST_ID_DEV"
 
 
 @lru_cache

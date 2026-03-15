@@ -92,15 +92,29 @@ def normalize_phone_number(raw_value: str | None) -> str | None:
 
 def _validate_attio_settings(settings: AppSettings) -> None:
     if settings.attio_api_key is None or not settings.attio_api_key.strip():
-        raise ValueError(f"{settings.attio_api_key_env_var} is required")
+        raise ValueError(f"{_attio_api_key_env_var_name(settings.app_env)} is required")
 
     if (
         settings.attio_founder_lifecycle_list_id is None
         or not settings.attio_founder_lifecycle_list_id.strip()
     ):
         raise ValueError(
-            f"{settings.attio_founder_lifecycle_list_id_env_var} is required"
+            f"{_attio_founder_lifecycle_list_id_env_var_name(settings.app_env)} is required"
         )
+
+
+def _attio_api_key_env_var_name(app_env: str) -> str:
+    if app_env == "prod":
+        return "ATTIO_API_KEY_PROD"
+
+    return "ATTIO_API_KEY_DEV"
+
+
+def _attio_founder_lifecycle_list_id_env_var_name(app_env: str) -> str:
+    if app_env == "prod":
+        return "ATTIO_FOUNDER_LIFECYCLE_LIST_ID_PROD"
+
+    return "ATTIO_FOUNDER_LIFECYCLE_LIST_ID_DEV"
 
 
 def _sync_company(company: AttioCompanySyncPayload, settings: AppSettings) -> str:

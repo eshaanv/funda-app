@@ -6,6 +6,7 @@ from funda_app.services import attio, attio_schema
 
 def test_app_settings_defaults_to_dev_for_attio_resolution() -> None:
     settings = AppSettings(
+        _env_file=None,
         whatsapp_access_token="token",
         whatsapp_phone_number_id="1029270380269800",
         attio_api_key_dev="dev-token",
@@ -16,16 +17,12 @@ def test_app_settings_defaults_to_dev_for_attio_resolution() -> None:
 
     assert settings.app_env == "dev"
     assert settings.attio_api_key == "dev-token"
-    assert settings.attio_api_key_env_var == "ATTIO_API_KEY_DEV"
     assert settings.attio_founder_lifecycle_list_id == "dev-list"
-    assert (
-        settings.attio_founder_lifecycle_list_id_env_var
-        == "ATTIO_FOUNDER_LIFECYCLE_LIST_ID_DEV"
-    )
 
 
 def test_app_settings_resolves_prod_attio_credentials() -> None:
     settings = AppSettings(
+        _env_file=None,
         app_env="prod",
         whatsapp_access_token="token",
         whatsapp_phone_number_id="1029270380269800",
@@ -36,12 +33,7 @@ def test_app_settings_resolves_prod_attio_credentials() -> None:
     )
 
     assert settings.attio_api_key == "prod-token"
-    assert settings.attio_api_key_env_var == "ATTIO_API_KEY_PROD"
     assert settings.attio_founder_lifecycle_list_id == "prod-list"
-    assert (
-        settings.attio_founder_lifecycle_list_id_env_var
-        == "ATTIO_FOUNDER_LIFECYCLE_LIST_ID_PROD"
-    )
 
 
 def test_attio_validation_uses_env_specific_error_names() -> None:
@@ -49,6 +41,7 @@ def test_attio_validation_uses_env_specific_error_names() -> None:
         attio.sync_attio_member(
             sync_request=_sync_request(),
             settings=AppSettings(
+                _env_file=None,
                 app_env="prod",
                 whatsapp_access_token="token",
                 whatsapp_phone_number_id="1029270380269800",
@@ -62,6 +55,7 @@ def test_attio_validation_uses_env_specific_error_names() -> None:
         attio.sync_attio_member(
             sync_request=_sync_request(),
             settings=AppSettings(
+                _env_file=None,
                 app_env="prod",
                 whatsapp_access_token="token",
                 whatsapp_phone_number_id="1029270380269800",
@@ -72,6 +66,7 @@ def test_attio_validation_uses_env_specific_error_names() -> None:
     with pytest.raises(ValueError, match="ATTIO_API_KEY_PROD is required"):
         attio_schema.export_attio_schema(
             settings=AppSettings(
+                _env_file=None,
                 app_env="prod",
                 whatsapp_access_token="token",
                 whatsapp_phone_number_id="1029270380269800",

@@ -24,3 +24,9 @@ variable "labels" {
   type        = map(string)
   default     = {}
 }
+
+variable "state_bucket_object_admin_members" {
+  description = "IAM members that need Storage Object Admin on the Terraform state bucket."
+  type        = list(string)
+  default     = []
+}

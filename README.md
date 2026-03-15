@@ -211,7 +211,9 @@ terraform -chdir=infra/bootstrap apply -var-file=dev.tfvars
 ```
 
 The bootstrap stack creates versioned buckets with uniform bucket-level access
-and public access prevention enabled.
+and public access prevention enabled. It also grants
+`roles/storage.objectAdmin` on each state bucket to the GitHub deployer
+service account so Terraform can read and write remote state.
 
 Create `infra/bootstrap/prod.tfvars` with:
 
@@ -220,6 +222,9 @@ project_id      = "funda-prod-490316"
 region          = "us-central1"
 bucket_name     = "funda-prod-490316-funda-app-tfstate"
 bucket_location = "US"
+state_bucket_object_admin_members = [
+  "serviceAccount:github-deploy@funda-prod-490316.iam.gserviceaccount.com",
+]
 
 labels = {
   app         = "funda-app"
@@ -235,6 +240,9 @@ project_id      = "stai-485819"
 region          = "us-central1"
 bucket_name     = "stai-485819-funda-app-tfstate"
 bucket_location = "US"
+state_bucket_object_admin_members = [
+  "serviceAccount:github-deploy@stai-485819.iam.gserviceaccount.com",
+]
 
 labels = {
   app         = "funda-app"
