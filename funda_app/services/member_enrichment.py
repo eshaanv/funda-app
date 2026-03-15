@@ -5,7 +5,11 @@ from google.genai.types import GenerateContentConfig
 from funda_app.agents.models import invoke_gemini
 from funda_app.agents.prompt import MEMBER_ENRICHMENT_PROMPT_TEMPLATE
 from funda_app.schemas.enrichment import EnrichmentRequest, MemberEnrichmentRecord
-from funda_app.schemas.webhooks import MemberJoinedWebhookPayload, MemberQuestionPayload
+from funda_app.schemas.webhooks import MemberJoinedWebhookPayload
+from funda_app.services.keyai_questions import (
+    KeyaiQuestionField,
+    get_question_answer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -145,11 +149,11 @@ def _get_linkedin_url(payload: MemberJoinedWebhookPayload) -> str | None:
         if _is_linkedin_url(candidate):
             return candidate
 
-    question_value = _find_answer(payload.questions, "linked")
-    if question_value is None:
+    value = get_question_answer(payload.questions, KeyaiQuestionField.LINKEDIN_URL)
+    if value is None:
         return None
 
-    candidate = question_value.strip()
+    candidate = value.strip()
     if not _is_linkedin_url(candidate):
         return None
 
@@ -160,35 +164,22 @@ def _get_company_name(payload: MemberJoinedWebhookPayload) -> str | None:
     if payload.member.companyName and payload.member.companyName.strip():
         return payload.member.companyName.strip()
 
-    question_value = _find_answer(payload.questions, "company name")
-    if question_value is None or not question_value.strip():
+    value = get_question_answer(payload.questions, KeyaiQuestionField.COMPANY_NAME)
+    if value is None or not value.strip():
         return None
 
-    return question_value.strip()
+    return value.strip()
 
 
 def _get_company_stage(payload: MemberJoinedWebhookPayload) -> str | None:
     if payload.member.companyStage and payload.member.companyStage.strip():
         return payload.member.companyStage.strip()
 
-    question_value = _find_answer(payload.questions, "funding stage")
-    if question_value is None or not question_value.strip():
+    value = get_question_answer(payload.questions, KeyaiQuestionField.FUNDING_STAGE)
+    if value is None or not value.strip():
         return None
 
-    return question_value.strip()
-
-
-def _find_answer(
-    questions: list[MemberQuestionPayload],
-    pattern: str,
-) -> str | None:
-    lowered_pattern = pattern.lower()
-
-    for item in questions:
-        if lowered_pattern in item.question.lower():
-            return item.answer
-
-    return None
+    return value.strip()
 
 
 def _is_linkedin_url(value: str) -> bool:

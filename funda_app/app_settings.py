@@ -39,6 +39,14 @@ class AppSettings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("ATTIO_FOUNDER_LIFECYCLE_LIST_ID_PROD"),
     )
+    attio_workspace_member_id_dev: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("ATTIO_WORKSPACE_MEMBER_ID_DEV"),
+    )
+    attio_workspace_member_id_prod: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("ATTIO_WORKSPACE_MEMBER_ID_PROD"),
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -81,6 +89,19 @@ class AppSettings(BaseSettings):
             return self.attio_founder_lifecycle_list_id_prod
 
         return self.attio_founder_lifecycle_list_id_dev
+
+    @property
+    def attio_workspace_member_id(self) -> str | None:
+        """
+        Returns the Attio workspace member ID for the active environment.
+
+        Returns:
+            str | None: Resolved Attio workspace member ID.
+        """
+        if self.app_env == "prod":
+            return self.attio_workspace_member_id_prod
+
+        return self.attio_workspace_member_id_dev
 
 
 @lru_cache

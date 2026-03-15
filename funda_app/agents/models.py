@@ -2,7 +2,6 @@ import logging
 import time
 from enum import StrEnum
 
-from google import genai
 from google.genai import types
 from google.genai.types import GenerateContentConfig
 

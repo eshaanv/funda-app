@@ -226,37 +226,9 @@ The Attio sync expects these environment variables:
 - `ATTIO_BASE_URL` (optional, defaults to `https://api.attio.com/v2`)
 - `ATTIO_TIMEOUT_SECONDS` (optional, defaults to `10`)
 
-Attio schema is now controlled from code via `ATTIO_SCHEMA` in
-[`funda_app/schemas/crm.py`](funda_app/schemas/crm.py). The runtime app keeps
-syncing records only; list and attribute provisioning happens through scripts.
-
-To inspect the live Attio schema in the currently targeted workspace:
-
-```bash
-uv run python scripts/check_attio_schema.py
-uv run python scripts/check_attio_schema.py --json
-```
-
-To export the current workspace schema snapshot:
-
-```bash
-uv run python scripts/export_attio_schema.py
-uv run python scripts/export_attio_schema.py --output outputs/attio_schema/dev.json
-```
-
-To apply the canonical Funda schema to the current workspace:
-
-```bash
-uv run python scripts/apply_attio_schema.py --dry-run
-uv run python scripts/apply_attio_schema.py
-```
-
-If you want the apply/check plan to treat extra custom attributes as drift,
-pass `--archive-extra-custom-attributes`.
-
-These scripts select the active Attio workspace from `APP_ENV`. To target a
-different workspace, set `APP_ENV=dev` or `APP_ENV=prod`. You can still pass a
-manual lifecycle list override with `--list-id` when needed.
+The app only syncs records into an existing Attio setup. It does not create or
+manage Attio lists or attributes programmatically. Configure the required Attio
+list and fields in Attio before running the webhook flow.
 
 The older `make attio-founder-lifecycle-attributes`,
 `make attio-people-attributes`, and `make attio-company-attributes` helpers

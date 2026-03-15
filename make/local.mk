@@ -25,6 +25,12 @@ attio-founder-lifecycle-attributes:
 		--header "Authorization: Bearer $(ATTIO_SELECTED_API_KEY)" \
 	| jq '.data[] | {title, api_slug, type}'
 
+attio-founder-lifecycle-attributes-dev:
+	@$(MAKE) APP_ENV=dev attio-founder-lifecycle-attributes
+
+attio-founder-lifecycle-attributes-prod:
+	@$(MAKE) APP_ENV=prod attio-founder-lifecycle-attributes
+
 attio-people-attributes:
 	@test -n "$(ATTIO_SELECTED_API_KEY)" || { echo "ATTIO_API_KEY_$(shell printf '%s' $(APP_ENV) | tr '[:lower:]' '[:upper:]') is required"; exit 1; }
 	curl --request GET \
@@ -32,12 +38,24 @@ attio-people-attributes:
 		--header "Authorization: Bearer $(ATTIO_SELECTED_API_KEY)" \
 	| jq '.data[] | {title, api_slug, type}'
 
+attio-people-attributes-dev:
+	@$(MAKE) APP_ENV=dev attio-people-attributes
+
+attio-people-attributes-prod:
+	@$(MAKE) APP_ENV=prod attio-people-attributes
+
 attio-company-attributes:
 	@test -n "$(ATTIO_SELECTED_API_KEY)" || { echo "ATTIO_API_KEY_$(shell printf '%s' $(APP_ENV) | tr '[:lower:]' '[:upper:]') is required"; exit 1; }
 	curl --request GET \
 		--url "$(ATTIO_BASE_URL)/objects/companies/attributes" \
 		--header "Authorization: Bearer $(ATTIO_SELECTED_API_KEY)" \
 	| jq '.data[] | {title, api_slug, type}'
+
+attio-company-attributes-dev:
+	@$(MAKE) APP_ENV=dev attio-company-attributes
+
+attio-company-attributes-prod:
+	@$(MAKE) APP_ENV=prod attio-company-attributes
 
 test-local-webhook: run-local-container
 	@echo "Waiting for local container at $(LOCAL_WEBHOOK_BASE_URL)"
