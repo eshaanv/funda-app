@@ -7,7 +7,7 @@
 **Payload includes:** Full member info + all onboarding Q&A answers
 
 **Current Funda handling:** Return `202 Accepted`, then queue background Attio
-CRM sync, member enrichment, and WhatsApp template delivery in that order.
+CRM sync and WhatsApp template delivery in that order.
 
 **Validation note:** `questions[]` is required for `member.joined`. Funda rejects
 joined payloads without it.
@@ -31,7 +31,7 @@ joined payloads without it.
 **Payload includes:** Member info + status change only
 
 **Current Funda handling:** Return `202 Accepted`, then queue background Attio
-CRM sync only.
+CRM sync and WhatsApp template delivery.
 
 ``` json
 {
@@ -47,7 +47,7 @@ CRM sync only.
 **Trigger:** Admin rejects a pending member
 
 **Current Funda handling:** Return `202 Accepted`, then queue background Attio
-CRM sync only.
+CRM sync and WhatsApp template delivery.
 
 ``` json
 {

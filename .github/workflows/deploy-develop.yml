@@ -1,0 +1,74 @@
+name: Deploy Cloud Run (develop)
+
+on:
+  push:
+    branches:
+      - develop
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-develop
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: develop
+    env:
+      PROJECT_ID: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+      REGION: ${{ vars.CLOUD_RUN_LOCATION }}
+      SERVICE_NAME: ${{ vars.CLOUD_RUN_SERVICE_NAME }}
+      IMAGE: ${{ vars.CLOUD_RUN_LOCATION }}-docker.pkg.dev/${{ vars.GOOGLE_CLOUD_PROJECT }}/${{ vars.ARTIFACT_REGISTRY_REPOSITORY }}/${{ vars.CLOUD_RUN_SERVICE_NAME }}:${{ github.sha }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate deploy config
+        shell: bash
+        env:
+          ARTIFACT_REGISTRY_REPOSITORY: ${{ vars.ARTIFACT_REGISTRY_REPOSITORY }}
+          GCP_SERVICE_ACCOUNT_EMAIL: ${{ vars.GCP_SERVICE_ACCOUNT_EMAIL }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        run: |
+          required_vars=(
+            PROJECT_ID
+            REGION
+            SERVICE_NAME
+            ARTIFACT_REGISTRY_REPOSITORY
+            GCP_SERVICE_ACCOUNT_EMAIL
+            GCP_WORKLOAD_IDENTITY_PROVIDER
+          )
+
+          for name in "${required_vars[@]}"; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is not set"
+              exit 1
+            fi
+          done
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT_EMAIL }}
+          create_credentials_file: true
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure Artifact Registry auth
+        run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+
+      - name: Build, push, and deploy
+        env:
+          CLOUDSDK_CORE_DISABLE_PROMPTS: "1"
+        run: make deploy

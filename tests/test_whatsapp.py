@@ -121,7 +121,7 @@ def test_send_request_rejects_unknown_template_name() -> None:
         ),
         (
             WhatsAppTemplateName.FUNDA_MEMBERSHIP_APPROVED,
-            "funda_membership_approved",
+            "funda_membership_approved1",
         ),
         (
             WhatsAppTemplateName.FUNDA_MEMBERSHIP_REJECTED,
