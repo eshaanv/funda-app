@@ -138,7 +138,7 @@ deploys it to Cloud Run via `make deploy`.
 
 Configure the `develop` GitHub environment with these values before using it:
 
-- Variables: `GCP_PROJECT_ID`, `GCP_REGION`,
+- Variables: `GOOGLE_CLOUD_PROJECT`, `CLOUD_RUN_LOCATION`,
   `ARTIFACT_REGISTRY_REPOSITORY`, `CLOUD_RUN_SERVICE_NAME`,
   `GCP_SERVICE_ACCOUNT_EMAIL`
 - Secret: `GCP_WORKLOAD_IDENTITY_PROVIDER`

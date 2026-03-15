@@ -18,10 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     environment: develop
     env:
-      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-      REGION: ${{ vars.GCP_REGION }}
+      PROJECT_ID: ${{ vars.GOOGLE_CLOUD_PROJECT }}
+      REGION: ${{ vars.CLOUD_RUN_LOCATION }}
       SERVICE_NAME: ${{ vars.CLOUD_RUN_SERVICE_NAME }}
-      IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.ARTIFACT_REGISTRY_REPOSITORY }}/${{ vars.CLOUD_RUN_SERVICE_NAME }}:${{ github.sha }}
+      IMAGE: ${{ vars.CLOUD_RUN_LOCATION }}-docker.pkg.dev/${{ vars.GOOGLE_CLOUD_PROJECT }}/${{ vars.ARTIFACT_REGISTRY_REPOSITORY }}/${{ vars.CLOUD_RUN_SERVICE_NAME }}:${{ github.sha }}
 
     steps:
       - name: Checkout
