@@ -6,10 +6,11 @@ Minimal FastAPI service for receiving Key.ai webhook calls.
 
 ```bash
 uv sync
+export APP_ENV=dev
 export WHATSAPP_ACCESS_TOKEN=your-token
 export WHATSAPP_PHONE_NUMBER_ID=your-phone-number-id
-export ATTIO_API_KEY=your-attio-api-key
-export ATTIO_FOUNDER_LIFECYCLE_LIST_ID=your-attio-list-id
+export ATTIO_API_KEY_DEV=your-dev-attio-api-key
+export ATTIO_FOUNDER_LIFECYCLE_LIST_ID_DEV=your-dev-attio-list-id
 uv run uvicorn funda_app.main:app --reload
 ```
 
@@ -141,21 +142,20 @@ Configure the `develop` GitHub environment with these values before using it:
 - Variables: `GOOGLE_CLOUD_PROJECT`, `CLOUD_RUN_LOCATION`,
   `ARTIFACT_REGISTRY_REPOSITORY`, `CLOUD_RUN_SERVICE_NAME`,
   `GCP_SERVICE_ACCOUNT_EMAIL`
-- Secret: `GCP_WORKLOAD_IDENTITY_PROVIDER`
+- Secrets: `GCP_WORKLOAD_IDENTITY_PROVIDER`
 
 The deploy service account needs permission to push images to Artifact
 Registry and deploy Cloud Run revisions. The workflow only updates the service
 image; runtime env vars and secrets still need to exist on the Cloud Run
-service or be managed separately.
-
-For the full one-time Google Cloud setup commands, including service account,
-Workload Identity Pool, provider, and IAM bindings, see
-[docs/github-actions-gcp-setup.md](docs/github-actions-gcp-setup.md).
+service or be managed separately. Deploy infrastructure (service accounts,
+Artifact Registry, Workload Identity, etc.) is now assumed to be managed
+outside this repository.
 
 Pushes to `main` now deploy through
 [`/.github/workflows/deploy-main.yml`](.github/workflows/deploy-main.yml).
-That workflow uses the `production` GitHub environment and runs automatically
-after the `develop` -> `main` merge completes.
+That workflow applies the production Terraform stack first, then deploys the
+app with the `production` GitHub environment after the `develop` -> `main`
+merge completes.
 
 If you promote code by merging `develop` into `main`, protect `main` by
 requiring the existing develop deploy check from
@@ -178,6 +178,8 @@ This blocks PRs into `main` unless the source branch is exactly `develop`, and
 it also blocks merge until the `develop` deploy has already succeeded for that
 commit. Once the merge lands on `main`, `deploy-prod` runs against the
 `production` GitHub environment.
+
+
 
 ## Endpoints
 
@@ -216,21 +218,50 @@ Every Key.ai member event now mirrors into Attio.
 
 The Attio sync expects these environment variables:
 
-- `ATTIO_API_KEY`
-- `ATTIO_FOUNDER_LIFECYCLE_LIST_ID`
+- `APP_ENV` (`dev` by default, or `prod`)
+- `ATTIO_API_KEY_DEV`
+- `ATTIO_API_KEY_PROD`
+- `ATTIO_FOUNDER_LIFECYCLE_LIST_ID_DEV`
+- `ATTIO_FOUNDER_LIFECYCLE_LIST_ID_PROD`
 - `ATTIO_BASE_URL` (optional, defaults to `https://api.attio.com/v2`)
 - `ATTIO_TIMEOUT_SECONDS` (optional, defaults to `10`)
 
-To inspect the current Attio attribute schema with the same environment values:
+Attio schema is now controlled from code via `ATTIO_SCHEMA` in
+[`funda_app/schemas/crm.py`](funda_app/schemas/crm.py). The runtime app keeps
+syncing records only; list and attribute provisioning happens through scripts.
+
+To inspect the live Attio schema in the currently targeted workspace:
 
 ```bash
-make attio-founder-lifecycle-attributes
-make attio-people-attributes
-make attio-company-attributes
+uv run python scripts/check_attio_schema.py
+uv run python scripts/check_attio_schema.py --json
 ```
 
-These helpers shell out to `curl` and `jq`, so both need to be available in
-your local environment.
+To export the current workspace schema snapshot:
+
+```bash
+uv run python scripts/export_attio_schema.py
+uv run python scripts/export_attio_schema.py --output outputs/attio_schema/dev.json
+```
+
+To apply the canonical Funda schema to the current workspace:
+
+```bash
+uv run python scripts/apply_attio_schema.py --dry-run
+uv run python scripts/apply_attio_schema.py
+```
+
+If you want the apply/check plan to treat extra custom attributes as drift,
+pass `--archive-extra-custom-attributes`.
+
+These scripts select the active Attio workspace from `APP_ENV`. To target a
+different workspace, set `APP_ENV=dev` or `APP_ENV=prod`. You can still pass a
+manual lifecycle list override with `--list-id` when needed.
+
+The older `make attio-founder-lifecycle-attributes`,
+`make attio-people-attributes`, and `make attio-company-attributes` helpers
+still exist for direct low-level inspection, and they now follow `APP_ENV`
+too.
 
 ## WhatsApp template dispatch
 

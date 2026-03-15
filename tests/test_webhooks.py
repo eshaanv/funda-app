@@ -55,7 +55,7 @@ def _build_joined_payload() -> dict[str, object]:
             {
                 "answer": "Seed",
                 "question": "What is the funding stage?",
-            }
+            },
         ],
         "occurredAt": "2026-03-13T15:05:32.436Z",
     }

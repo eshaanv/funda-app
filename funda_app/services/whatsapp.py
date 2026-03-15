@@ -106,9 +106,7 @@ def _build_body_parameters(
             )
 
         if unexpected_names:
-            message_parts.append(
-                f"unexpected metadata: {', '.join(unexpected_names)}"
-            )
+            message_parts.append(f"unexpected metadata: {', '.join(unexpected_names)}")
 
         raise ValueError(
             f"Template metadata mismatch for {template.name}: {'; '.join(message_parts)}"

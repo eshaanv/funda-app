@@ -4,6 +4,11 @@ This document captures the Google Cloud setup used by
 [`/.github/workflows/deploy-develop.yml`](../.github/workflows/deploy-develop.yml)
 so the same pattern can be repeated for production later.
 
+Terraform under [`/infra`](../infra) is now the source of truth for this deploy
+infrastructure. Use this document as the manual resource map when importing
+existing GCP resources into Terraform state or verifying a live project by
+hand. The Cloud Run service itself remains outside Terraform.
+
 It covers:
 
 - the deployer service account used by GitHub Actions
@@ -121,16 +126,24 @@ Variables:
 - `ARTIFACT_REGISTRY_REPOSITORY`
 - `CLOUD_RUN_SERVICE_NAME`
 - `GCP_SERVICE_ACCOUNT_EMAIL`
+- `TERRAFORM_STATE_BUCKET`
+- `TERRAFORM_STATE_PREFIX`
 
 Secret:
 
 - `GCP_WORKLOAD_IDENTITY_PROVIDER`
+- `GH_TERRAFORM_TOKEN`
 
 The `production` GitHub environment used by
 [`/.github/workflows/deploy-main.yml`](../.github/workflows/deploy-main.yml)
-uses the same variable and secret names. Point them at the production project,
+uses the same variable names. Point them at the production project,
 region, Artifact Registry repository, Cloud Run service, deployer service
 account, and workload identity provider values.
+
+`GH_TERRAFORM_TOKEN` must be available in both environments because the
+Terraform jobs use the GitHub provider to manage repository environments and
+their Actions variables. `TERRAFORM_STATE_BUCKET` and
+`TERRAFORM_STATE_PREFIX` point each environment at its remote state backend.
 
 Set `GCP_WORKLOAD_IDENTITY_PROVIDER` to:
 
