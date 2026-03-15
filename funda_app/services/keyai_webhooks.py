@@ -137,7 +137,7 @@ def dispatch_keyai_member_tasks(payload: BaseMemberWebhookPayload) -> None:
 
     if payload.event == MemberWebhookEvent.MEMBER_JOINED:
         # TODO: Enable joined-member enrichment once we have a stable way to test it.
-        dispatch_keyai_whatsapp_message(payload)
+        # dispatch_keyai_whatsapp_message(payload)
         return
 
     dispatch_keyai_whatsapp_message(payload)
