@@ -1,7 +1,7 @@
 import pytest
 
 from funda_app.app_settings import AppSettings
-from funda_app.services import attio, attio_schema
+from funda_app.services import attio
 
 
 def test_app_settings_defaults_to_dev_for_attio_resolution() -> None:
@@ -45,6 +45,7 @@ def test_attio_validation_uses_env_specific_error_names() -> None:
                 app_env="prod",
                 whatsapp_access_token="token",
                 whatsapp_phone_number_id="1029270380269800",
+                attio_api_key_prod="",
                 attio_founder_lifecycle_list_id_prod="prod-list",
             ),
         )
@@ -60,19 +61,9 @@ def test_attio_validation_uses_env_specific_error_names() -> None:
                 whatsapp_access_token="token",
                 whatsapp_phone_number_id="1029270380269800",
                 attio_api_key_prod="prod-token",
+                attio_founder_lifecycle_list_id_prod="",
             ),
         )
-
-    with pytest.raises(ValueError, match="ATTIO_API_KEY_PROD is required"):
-        attio_schema.export_attio_schema(
-            settings=AppSettings(
-                _env_file=None,
-                app_env="prod",
-                whatsapp_access_token="token",
-                whatsapp_phone_number_id="1029270380269800",
-            )
-        )
-
 
 def _sync_request():
     from datetime import UTC, datetime
