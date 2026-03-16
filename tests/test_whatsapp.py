@@ -3,7 +3,7 @@ from pydantic import ValidationError
 
 from funda_app.schemas.whatsapp import WhatsAppTemplateName, WhatsAppTemplateSendRequest
 from funda_app.services import whatsapp
-from funda_app.services.whatsapp_templates import get_whatsapp_template
+from funda_app.services.whatsapp_templates import get_whatsapp_template_definition
 from funda_app.app_settings import AppSettings
 
 
@@ -131,11 +131,11 @@ def test_send_request_rejects_unknown_template_name() -> None:
         ),
     ],
 )
-def test_get_whatsapp_template_returns_registered_template(
+def test_get_whatsapp_template_definition_returns_registered_template(
     template_name: WhatsAppTemplateName,
     expected_name: str,
 ) -> None:
-    template = get_whatsapp_template(template_name)
+    template = get_whatsapp_template_definition(template_name)
 
     assert template.name == template_name
     assert template.language == "en"

@@ -6,7 +6,7 @@ from pydantic import ValidationError
 from funda_app.schemas.webhooks import MemberJoinedWebhookPayload
 from funda_app.schemas.whatsapp import WhatsAppTemplateName
 from funda_app.services import keyai_webhooks, whatsapp
-from funda_app.services.whatsapp_templates import get_whatsapp_template
+from funda_app.services.whatsapp_templates import get_whatsapp_template_definition
 from funda_app.app_settings import get_app_settings
 
 LIVE_RECIPIENT_PHONE = "19256400611"
@@ -80,7 +80,7 @@ def test_member_joined_live_whatsapp_dispatch() -> None:
 
     graph_api_payload = whatsapp._build_graph_api_payload(
         send_request=send_request,
-        template=get_whatsapp_template(send_request.template_name),
+        template=get_whatsapp_template_definition(send_request.template_name),
     )
 
     assert graph_api_payload == {

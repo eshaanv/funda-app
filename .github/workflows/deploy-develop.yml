@@ -19,10 +19,16 @@ jobs:
     runs-on: ubuntu-latest
     environment: develop
     env:
+      APP_ENV: dev
       PROJECT_ID: ${{ vars.GOOGLE_CLOUD_PROJECT }}
       REGION: ${{ vars.CLOUD_RUN_LOCATION }}
       SERVICE_NAME: ${{ vars.CLOUD_RUN_SERVICE_NAME }}
       IMAGE: ${{ vars.CLOUD_RUN_LOCATION }}-docker.pkg.dev/${{ vars.GOOGLE_CLOUD_PROJECT }}/${{ vars.ARTIFACT_REGISTRY_REPOSITORY }}/${{ vars.CLOUD_RUN_SERVICE_NAME }}:${{ github.sha }}
+      WHATS_APP_TOKEN: ${{ secrets.WHATS_APP_TOKEN }}
+      WHATSAPP_PHONE_NUMBER_ID: ${{ vars.WHATSAPP_PHONE_NUMBER_ID }}
+      ATTIO_API_KEY_DEV: ${{ secrets.ATTIO_API_KEY_DEV }}
+      ATTIO_FOUNDER_LIFECYCLE_LIST_ID_DEV: ${{ vars.ATTIO_FOUNDER_LIFECYCLE_LIST_ID_DEV }}
+      ATTIO_WORKSPACE_MEMBER_ID_DEV: ${{ vars.ATTIO_WORKSPACE_MEMBER_ID_DEV }}
 
     steps:
       - name: Checkout
@@ -34,6 +40,10 @@ jobs:
           ARTIFACT_REGISTRY_REPOSITORY: ${{ vars.ARTIFACT_REGISTRY_REPOSITORY }}
           GCP_SERVICE_ACCOUNT_EMAIL: ${{ vars.GCP_SERVICE_ACCOUNT_EMAIL }}
           GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          WHATS_APP_TOKEN: ${{ secrets.WHATS_APP_TOKEN }}
+          WHATSAPP_PHONE_NUMBER_ID: ${{ vars.WHATSAPP_PHONE_NUMBER_ID }}
+          ATTIO_API_KEY_DEV: ${{ secrets.ATTIO_API_KEY_DEV }}
+          ATTIO_FOUNDER_LIFECYCLE_LIST_ID_DEV: ${{ vars.ATTIO_FOUNDER_LIFECYCLE_LIST_ID_DEV }}
         run: |
           required_vars=(
             PROJECT_ID
@@ -42,6 +52,10 @@ jobs:
             ARTIFACT_REGISTRY_REPOSITORY
             GCP_SERVICE_ACCOUNT_EMAIL
             GCP_WORKLOAD_IDENTITY_PROVIDER
+            WHATS_APP_TOKEN
+            WHATSAPP_PHONE_NUMBER_ID
+            ATTIO_API_KEY_DEV
+            ATTIO_FOUNDER_LIFECYCLE_LIST_ID_DEV
           )
 
           for name in "${required_vars[@]}"; do

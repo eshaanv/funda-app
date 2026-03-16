@@ -37,7 +37,7 @@ def test_app_settings_resolves_prod_attio_credentials() -> None:
 
 
 def test_attio_validation_uses_env_specific_error_names() -> None:
-    with pytest.raises(ValueError, match="ATTIO_API_KEY_PROD is required"):
+    with pytest.raises(ValueError, match="Set the Attio API key in env - prod"):
         attio.sync_attio_member(
             sync_request=_sync_request(),
             settings=AppSettings(
@@ -51,7 +51,7 @@ def test_attio_validation_uses_env_specific_error_names() -> None:
         )
 
     with pytest.raises(
-        ValueError, match="ATTIO_FOUNDER_LIFECYCLE_LIST_ID_PROD is required"
+        ValueError, match="Set the Attio founder lifecycle id in env - prod"
     ):
         attio.sync_attio_member(
             sync_request=_sync_request(),
@@ -64,6 +64,7 @@ def test_attio_validation_uses_env_specific_error_names() -> None:
                 attio_founder_lifecycle_list_id_prod="",
             ),
         )
+
 
 def _sync_request():
     from datetime import UTC, datetime

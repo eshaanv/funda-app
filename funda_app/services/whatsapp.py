@@ -6,7 +6,7 @@ from funda_app.schemas.whatsapp import (
     WhatsAppTemplateDefinition,
     WhatsAppTemplateSendRequest,
 )
-from funda_app.services.whatsapp_templates import get_whatsapp_template
+from funda_app.services.whatsapp_templates import get_whatsapp_template_definition
 from funda_app.app_settings import AppSettings, get_app_settings
 
 
@@ -30,7 +30,7 @@ def send_whatsapp_template_message(
         ValueError: If the template metadata does not match the registry.
     """
     runtime_settings = settings or get_app_settings()
-    template = get_whatsapp_template(send_request.template_name)
+    template = get_whatsapp_template_definition(send_request.template_name)
     payload = _build_graph_api_payload(send_request, template)
     url = (
         f"{runtime_settings.whatsapp_base_url.rstrip('/')}/"
