@@ -1,4 +1,4 @@
-.PHONY: auth _ensure-local-webhook-ready test-local-webhook test-local-webhook-joined test-local-webhook-approved test-local-webhook-rejected test-local-webhook-removed test-local-webhook-left run-local-container logs-local-container
+.PHONY: auth _ensure-local-webhook-ready test-local-webhook test-local-webhook-joined test-local-webhook-approved test-local-webhook-rejected test-local-webhook-removed test-local-webhook-left test-dev-webhook test-prod-webhook run-local-container logs-local-container
 .PHONY: attio-founder-lifecycle-attributes attio-people-attributes attio-company-attributes
 
 APP_ENV ?= dev
@@ -57,7 +57,9 @@ attio-company-attributes-dev:
 attio-company-attributes-prod:
 	@$(MAKE) APP_ENV=prod attio-company-attributes
 
-WEBHOOK_PYTEST = RUN_LOCAL_WEBHOOK_TESTS=1 LOCAL_WEBHOOK_BASE_URL="$(LOCAL_WEBHOOK_BASE_URL)" uv run pytest tests/test_webhooks_functional.py -q
+WEBHOOK_PYTEST = RUN_LOCAL_WEBHOOK_TESTS=1 LOCAL_WEBHOOK_BASE_URL="$(LOCAL_WEBHOOK_BASE_URL)" WEBHOOK_TEST_TARGET=local uv run pytest tests/test_webhooks_functional.py -q
+WEBHOOK_PYTEST_DEV = RUN_LOCAL_WEBHOOK_TESTS=1 APP_ENV=dev WEBHOOK_TEST_TARGET=dev uv run pytest tests/test_webhooks_functional.py -k "dev" -q
+WEBHOOK_PYTEST_PROD = RUN_LOCAL_WEBHOOK_TESTS=1 APP_ENV=prod WEBHOOK_TEST_TARGET=prod uv run pytest tests/test_webhooks_functional.py -k "prod" -q
 
 _ensure-local-webhook-ready: run-local-container
 	@echo "Waiting for local container at $(LOCAL_WEBHOOK_BASE_URL)"
@@ -76,19 +78,25 @@ test-local-webhook: _ensure-local-webhook-ready
 	$(WEBHOOK_PYTEST)
 
 test-local-webhook-joined: _ensure-local-webhook-ready
-	$(WEBHOOK_PYTEST) -k "test_member_joined_local_fastapi_webhook"
+	$(WEBHOOK_PYTEST) -k "test_member_joined_webhook[local]"
 
 test-local-webhook-approved: _ensure-local-webhook-ready
-	$(WEBHOOK_PYTEST) -k "test_member_approved_local_fastapi_webhook"
+	$(WEBHOOK_PYTEST) -k "test_member_approved_webhook[local]"
 
 test-local-webhook-rejected: _ensure-local-webhook-ready
-	$(WEBHOOK_PYTEST) -k "test_member_rejected_local_fastapi_webhook"
+	$(WEBHOOK_PYTEST) -k "test_member_rejected_webhook[local]"
 
 test-local-webhook-removed: _ensure-local-webhook-ready
-	$(WEBHOOK_PYTEST) -k "test_member_removed_local_fastapi_webhook"
+	$(WEBHOOK_PYTEST) -k "test_member_removed_webhook[local]"
 
 test-local-webhook-left: _ensure-local-webhook-ready
-	$(WEBHOOK_PYTEST) -k "test_member_left_local_fastapi_webhook"
+	$(WEBHOOK_PYTEST) -k "test_member_left_webhook[local]"
+
+test-dev-webhook:
+	$(WEBHOOK_PYTEST_DEV)
+
+test-prod-webhook:
+	$(WEBHOOK_PYTEST_PROD)
 
 run-local-container: build-image
 	@if [ ! -f "$(LOCAL_CONTAINER_ENV_FILE)" ]; then \

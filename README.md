@@ -7,7 +7,7 @@ Minimal FastAPI service for receiving Key.ai webhook calls.
 ```bash
 uv sync
 export APP_ENV=dev
-export WHATSAPP_ACCESS_TOKEN=your-token
+export WHATS_APP_TOKEN=your-token
 export WHATSAPP_PHONE_NUMBER_ID=your-phone-number-id
 export ATTIO_API_KEY_DEV=your-dev-attio-api-key
 export ATTIO_FOUNDER_LIFECYCLE_LIST_ID_DEV=your-dev-attio-list-id
@@ -248,7 +248,7 @@ The template registry lives in
 [`funda_app/services/whatsapp_templates.py`](funda_app/services/whatsapp_templates.py),
 and the sender expects these environment variables:
 
-- `WHATSAPP_ACCESS_TOKEN`
+- `WHATS_APP_TOKEN`
 - `WHATSAPP_PHONE_NUMBER_ID`
 - `WHATSAPP_API_VERSION` (optional, defaults to `v25.0`)
 - `WHATSAPP_BASE_URL` (optional, defaults to `https://graph.facebook.com`)
