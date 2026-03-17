@@ -34,7 +34,7 @@ class AppSettings(BaseSettings):
         validation_alias=AliasChoices("ATTIO_API_KEY_PROD"),
     )
     attio_base_url: str = "https://api.attio.com/v2"
-    attio_timeout_seconds: float = 10.0
+    attio_timeout_seconds: float = 20.0
     attio_founder_lifecycle_list_id_dev: str | None = Field(
         default=None,
         validation_alias=AliasChoices("ATTIO_FOUNDER_LIFECYCLE_LIST_ID_DEV"),
