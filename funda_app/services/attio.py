@@ -1,5 +1,6 @@
+import logging
 from collections.abc import Mapping
-from urllib import parse
+from urllib import error, parse
 
 from funda_app.schemas.crm import (
     ATTIO_SCHEMA,
@@ -10,6 +11,8 @@ from funda_app.schemas.crm import (
 from funda_app.app_settings import AppSettings, get_app_settings
 from funda_app.utils.domain import normalize_domain
 from funda_app.utils.http import request_json
+
+logger = logging.getLogger(__name__)
 
 
 def sync_attio_member(
@@ -80,22 +83,15 @@ def _sync_company(company: AttioCompanySyncPayload, settings: AppSettings) -> st
         query = parse.urlencode(
             {"matching_attribute": ATTIO_SCHEMA.company.domains_attribute}
         )
-        response = request_json(
+        response = _request_json_with_company_fallback(
             method="PUT",
             url=(
                 f"{settings.attio_base_url.rstrip('/')}/objects/"
                 f"{ATTIO_SCHEMA.company.object_slug}/records?{query}"
             ),
-            payload={
-                "data": {
-                    "values": _build_company_values(
-                        company=company,
-                        domain=domain,
-                    )
-                }
-            },
-            access_token=settings.attio_api_key or "",
-            timeout_seconds=settings.attio_timeout_seconds,
+            company=company,
+            settings=settings,
+            domain=domain,
         )
         return _extract_record_id(response)
 
@@ -105,40 +101,26 @@ def _sync_company(company: AttioCompanySyncPayload, settings: AppSettings) -> st
     )
 
     if existing_record_id is None:
-        response = request_json(
+        response = _request_json_with_company_fallback(
             method="POST",
             url=(
                 f"{settings.attio_base_url.rstrip('/')}/objects/"
                 f"{ATTIO_SCHEMA.company.object_slug}/records"
             ),
-            payload={
-                "data": {
-                    "values": _build_company_values(
-                        company=company,
-                    )
-                }
-            },
-            access_token=settings.attio_api_key or "",
-            timeout_seconds=settings.attio_timeout_seconds,
+            company=company,
+            settings=settings,
         )
         return _extract_record_id(response)
 
-    request_json(
+    _request_json_with_company_fallback(
         method="PATCH",
         url=(
             f"{settings.attio_base_url.rstrip('/')}/objects/"
             f"{ATTIO_SCHEMA.company.object_slug}/records/"
             f"{existing_record_id}"
         ),
-        payload={
-            "data": {
-                "values": _build_company_values(
-                    company=company,
-                )
-            }
-        },
-        access_token=settings.attio_api_key or "",
-        timeout_seconds=settings.attio_timeout_seconds,
+        company=company,
+        settings=settings,
     )
     return existing_record_id
 
@@ -184,22 +166,15 @@ def _assert_person_record(
     query = parse.urlencode(
         {"matching_attribute": ATTIO_SCHEMA.person.matching_attribute}
     )
-    response = request_json(
+    response = _request_json_with_person_fallback(
         method="PUT",
         url=(
             f"{settings.attio_base_url.rstrip('/')}/objects/"
             f"{ATTIO_SCHEMA.person.object_slug}/records?{query}"
         ),
-        payload={
-            "data": {
-                "values": _build_person_values(
-                    sync_request=sync_request,
-                    company_record_id=company_record_id,
-                )
-            }
-        },
-        access_token=settings.attio_api_key or "",
-        timeout_seconds=settings.attio_timeout_seconds,
+        sync_request=sync_request,
+        company_record_id=company_record_id,
+        settings=settings,
     )
     return _extract_record_id(response)
 
@@ -233,6 +208,7 @@ def _assert_lifecycle_entry(
 def _build_person_values(
     sync_request: AttioLifecycleSyncRequest,
     company_record_id: str | None,
+    include_optional_fields: bool = True,
 ) -> dict[str, object]:
     values: dict[str, object] = {
         ATTIO_SCHEMA.person.email_attribute: [sync_request.person.email],
@@ -255,15 +231,15 @@ def _build_person_values(
 
         values[ATTIO_SCHEMA.person.phone_attribute] = [phone_value]
 
-    if sync_request.person.linkedin_url is not None:
+    if include_optional_fields and sync_request.person.linkedin_url is not None:
         values[ATTIO_SCHEMA.person.linkedin_attribute] = (
             sync_request.person.linkedin_url
         )
 
-    if sync_request.person.job_title is not None:
+    if include_optional_fields and sync_request.person.job_title is not None:
         values[ATTIO_SCHEMA.person.job_title_attribute] = sync_request.person.job_title
 
-    if company_record_id is not None:
+    if include_optional_fields and company_record_id is not None:
         values[ATTIO_SCHEMA.person.company_relationship_attribute] = [
             {
                 "target_object": ATTIO_SCHEMA.company.object_slug,
@@ -277,16 +253,121 @@ def _build_person_values(
 def _build_company_values(
     company: AttioCompanySyncPayload,
     domain: str | None = None,
+    include_optional_fields: bool = True,
 ) -> dict[str, object]:
     values: dict[str, object] = {ATTIO_SCHEMA.company.name_attribute: company.name}
     if domain is not None:
         values[ATTIO_SCHEMA.company.domains_attribute] = [{"domain": domain}]
-    if company.stage is not None:
+    if include_optional_fields and company.stage is not None:
         values[ATTIO_SCHEMA.company.stage_attribute] = company.stage
-    if company.company_website is not None:
+    if include_optional_fields and company.company_website is not None:
         values[ATTIO_SCHEMA.company.company_website_attribute] = company.company_website
 
     return values
+
+
+def _request_json_with_company_fallback(
+    method: str,
+    url: str,
+    company: AttioCompanySyncPayload,
+    settings: AppSettings,
+    domain: str | None = None,
+) -> dict[str, object]:
+    payload = {
+        "data": {
+            "values": _build_company_values(
+                company=company,
+                domain=domain,
+            )
+        }
+    }
+    try:
+        return request_json(
+            method=method,
+            url=url,
+            payload=payload,
+            access_token=settings.attio_api_key or "",
+            timeout_seconds=settings.attio_timeout_seconds,
+        )
+    except error.HTTPError as exc:
+        if exc.code != 400 or (
+            company.stage is None and company.company_website is None
+        ):
+            raise
+
+        logger.warning(
+            "Attio company sync rejected optional fields; retrying with required values only: %s",
+            exc.msg,
+        )
+        fallback_payload = {
+            "data": {
+                "values": _build_company_values(
+                    company=company,
+                    domain=domain,
+                    include_optional_fields=False,
+                )
+            }
+        }
+        return request_json(
+            method=method,
+            url=url,
+            payload=fallback_payload,
+            access_token=settings.attio_api_key or "",
+            timeout_seconds=settings.attio_timeout_seconds,
+        )
+
+
+def _request_json_with_person_fallback(
+    method: str,
+    url: str,
+    sync_request: AttioLifecycleSyncRequest,
+    company_record_id: str | None,
+    settings: AppSettings,
+) -> dict[str, object]:
+    payload = {
+        "data": {
+            "values": _build_person_values(
+                sync_request=sync_request,
+                company_record_id=company_record_id,
+            )
+        }
+    }
+    try:
+        return request_json(
+            method=method,
+            url=url,
+            payload=payload,
+            access_token=settings.attio_api_key or "",
+            timeout_seconds=settings.attio_timeout_seconds,
+        )
+    except error.HTTPError as exc:
+        if exc.code != 400 or (
+            sync_request.person.linkedin_url is None
+            and sync_request.person.job_title is None
+            and company_record_id is None
+        ):
+            raise
+
+        logger.warning(
+            "Attio person sync rejected optional fields; retrying with required values only: %s",
+            exc.msg,
+        )
+        fallback_payload = {
+            "data": {
+                "values": _build_person_values(
+                    sync_request=sync_request,
+                    company_record_id=None,
+                    include_optional_fields=False,
+                )
+            }
+        }
+        return request_json(
+            method=method,
+            url=url,
+            payload=fallback_payload,
+            access_token=settings.attio_api_key or "",
+            timeout_seconds=settings.attio_timeout_seconds,
+        )
 
 
 def _build_lifecycle_entry_values(

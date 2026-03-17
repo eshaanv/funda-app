@@ -7,6 +7,7 @@ from funda_app.schemas.crm import (
 )
 from funda_app.schemas.webhooks import (
     BaseMemberWebhookPayload,
+    MemberWebhookEvent,
     MemberWebhookPayload,
     WebhookAcceptedResponse,
 )
@@ -108,7 +109,10 @@ def build_keyai_attio_sync_request(
     company_website = get_company_website_domain(questions)
     company = None
 
-    if company_name is not None:
+    if (
+        payload.event == MemberWebhookEvent.MEMBER_JOINED
+        and company_name is not None
+    ):
         company = AttioCompanySyncPayload(
             name=company_name,
             stage=company_stage,
@@ -158,12 +162,13 @@ def dispatch_keyai_attio_sync(payload: BaseMemberWebhookPayload) -> None:
 
     try:
         result = sync_attio_member(sync_request)
-    except Exception:
+    except Exception as exc:
         logger.exception(
-            "Attio sync failed: event=%s member_id=%s event_id=%s",
+            "Attio sync failed: event=%s member_id=%s event_id=%s error=%s",
             payload.event,
             payload.member.id,
             payload.eventId,
+            str(exc),
         )
         return
 

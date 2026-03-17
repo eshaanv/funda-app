@@ -300,6 +300,17 @@ def test_service_builds_attio_sync_request_with_job_title_and_company_website() 
     assert sync_request.company.company_website == "acme.ai"
 
 
+def test_service_skips_company_sync_for_non_joined_event() -> None:
+    payload_data = _build_approved_payload()
+    payload_data["member"]["companyName"] = "Acme AI"
+    payload_data["member"]["companyStage"] = "Seed"
+    payload = MemberApprovedWebhookPayload.model_validate(payload_data)
+
+    sync_request = keyai_webhooks.build_keyai_attio_sync_request(payload=payload)
+
+    assert sync_request.company is None
+
+
 @pytest.mark.parametrize(
     ("payload", "expected_template_name"),
     [
