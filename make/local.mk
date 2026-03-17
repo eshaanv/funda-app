@@ -58,7 +58,7 @@ attio-company-attributes-prod:
 	@$(MAKE) APP_ENV=prod attio-company-attributes
 
 WEBHOOK_PYTEST = RUN_LOCAL_WEBHOOK_TESTS=1 LOCAL_WEBHOOK_BASE_URL="$(LOCAL_WEBHOOK_BASE_URL)" WEBHOOK_TEST_TARGET=local uv run pytest tests/test_webhooks_functional.py -q
-WEBHOOK_FIRESTORE_PYTEST = RUN_LOCAL_WEBHOOK_TESTS=1 LOCAL_WEBHOOK_BASE_URL="$(LOCAL_WEBHOOK_BASE_URL)" WEBHOOK_TEST_TARGET=local LOCAL_FIRESTORE_PROJECT_ID="$(if $(LOCAL_FIRESTORE_PROJECT_ID),$(LOCAL_FIRESTORE_PROJECT_ID),$(GOOGLE_CLOUD_PROJECT))" uv run pytest tests/test_webhooks_functional.py -k "test_member_joined_webhook_creates_firestore_idempotency_record[local]" -q
+WEBHOOK_FIRESTORE_PYTEST = RUN_LOCAL_WEBHOOK_TESTS=1 LOCAL_WEBHOOK_BASE_URL="$(LOCAL_WEBHOOK_BASE_URL)" WEBHOOK_TEST_TARGET=local LOCAL_FIRESTORE_PROJECT_ID="$(if $(LOCAL_FIRESTORE_PROJECT_ID),$(LOCAL_FIRESTORE_PROJECT_ID),$(GOOGLE_CLOUD_PROJECT))" uv run pytest tests/test_webhooks_functional.py -k "test_member_joined_webhook_dedupes_concurrent_duplicate_event_ids[local]" -q
 WEBHOOK_PYTEST_DEV = RUN_LOCAL_WEBHOOK_TESTS=1 APP_ENV=dev WEBHOOK_TEST_TARGET=dev uv run pytest tests/test_webhooks_functional.py -k "dev" -q
 WEBHOOK_PYTEST_PROD = RUN_LOCAL_WEBHOOK_TESTS=1 APP_ENV=prod WEBHOOK_TEST_TARGET=prod uv run pytest tests/test_webhooks_functional.py -k "prod" -q
 

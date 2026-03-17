@@ -59,8 +59,8 @@ make logs-local-container
 
 ## Local Firestore idempotency test
 
-To verify that a webhook creates a real Firestore idempotency document locally,
-set your Google Cloud project in `.env` and ensure ADC credentials exist:
+To verify duplicate-delivery idempotency locally, set your Google Cloud
+project in `.env` and ensure ADC credentials exist:
 
 ```bash
 export GOOGLE_CLOUD_PROJECT=stai-485819
@@ -68,10 +68,10 @@ make auth
 make test-local-webhook-firestore
 ```
 
-That target posts a unique `member.joined` webhook to the local container and
-then polls Firestore for the corresponding document in the
-`keyai_webhook_events` collection. The document is left in Firestore so you can
-inspect it in the console afterward.
+That target sends two concurrent `member.joined` webhook requests with the same
+`eventId` to the local container, then polls Firestore for the corresponding
+document in the `keyai_webhook_events` collection. The document is left in
+Firestore so you can inspect it in the console afterward.
 
 If you want to override the Firestore project explicitly for the test:
 

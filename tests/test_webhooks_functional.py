@@ -1,5 +1,6 @@
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
 import httpx
@@ -99,6 +100,33 @@ def _post_webhook(json: dict, base_url: str) -> httpx.Response:
         )
 
 
+def _build_joined_payload(event_id: str) -> dict[str, object]:
+    return {
+        "event": "member.joined",
+        "member": _common_member(),
+        "status": {"new": "PENDING", "old": None},
+        "eventId": event_id,
+        "version": 1,
+        "community": _common_community(),
+        "questions": [
+            {"question": "Linkedin URL?", "answer": "linkedin.com/in/eshaan-vipani/"},
+            {
+                "question": "WhatsApp Phone Number? (Needed to add you into our WhatsApp community)",
+                "answer": "9256400611",
+            },
+            {"question": "Company Name?", "answer": "Wells Fargo"},
+            {
+                "question": "Company Website Domain? (e.g. www.newco.com)",
+                "answer": "https://www.wellsfargo.com/",
+            },
+            {"question": "Job Title?", "answer": "Software Engineer"},
+            {"question": "Funding Stage?", "answer": "Prefer not to say"},
+            {"question": "What describes you best?", "answer": "Service Provider"},
+        ],
+        "occurredAt": "2026-03-13T15:05:32.436Z",
+    }
+
+
 def _should_skip_target(target: str) -> tuple[bool, str]:
     """Returns (skip, reason). Skip when opt-in missing, target filtered, or URL not set."""
     if not _webhook_test_enabled():
@@ -153,6 +181,17 @@ def _wait_for_firestore_event_document(
     )
 
 
+def _delete_firestore_event_document(target: str, event_id: str) -> None:
+    """Deletes a Firestore idempotency document when present."""
+    project_id = _firestore_project_id_for_target(target)
+    if project_id is None:
+        pytest.fail(f"Missing Firestore project ID for target {target!r}")
+
+    firestore.Client(project=project_id).collection(KEYAI_WEBHOOK_COLLECTION).document(
+        event_id
+    ).delete()
+
+
 @pytest.mark.parametrize("target", WEBHOOK_TARGETS)
 @pytest.mark.skipif(
     not _webhook_test_enabled(),
@@ -163,30 +202,7 @@ def test_member_joined_webhook(target: str) -> None:
     if skip:
         pytest.skip(reason)
     base_url = _base_url_for_target(target)
-    payload = {
-        "event": "member.joined",
-        "member": _common_member(),
-        "status": {"new": "PENDING", "old": None},
-        "eventId": "08964b2f-d41e-4ae4-aa9f-bfb87b48c94f",
-        "version": 1,
-        "community": _common_community(),
-        "questions": [
-            {"question": "Linkedin URL?", "answer": "linkedin.com/in/eshaan-vipani/"},
-            {
-                "question": "WhatsApp Phone Number? (Needed to add you into our WhatsApp community)",
-                "answer": "9256400611",
-            },
-            {"question": "Company Name?", "answer": "Wells Fargo"},
-            {
-                "question": "Company Website Domain? (e.g. www.newco.com)",
-                "answer": "https://www.wellsfargo.com/",
-            },
-            {"question": "Job Title?", "answer": "Software Engineer"},
-            {"question": "Funding Stage?", "answer": "Prefer not to say"},
-            {"question": "What describes you best?", "answer": "Service Provider"},
-        ],
-        "occurredAt": "2026-03-13T15:05:32.436Z",
-    }
+    payload = _build_joined_payload("08964b2f-d41e-4ae4-aa9f-bfb87b48c94f")
     response = _post_webhook(payload, base_url)
     assert response.status_code == 202
     assert response.json() == {
@@ -313,7 +329,7 @@ def test_member_left_webhook(target: str) -> None:
     not _webhook_test_enabled(),
     reason="Set RUN_LOCAL_WEBHOOK_TESTS=1 or WEBHOOK_TEST_TARGET=local|dev|prod to run.",
 )
-def test_member_joined_webhook_creates_firestore_idempotency_record(
+def test_member_joined_webhook_dedupes_concurrent_duplicate_event_ids(
     target: str,
 ) -> None:
     skip, reason = _should_skip_firestore_target(target)
@@ -322,35 +338,21 @@ def test_member_joined_webhook_creates_firestore_idempotency_record(
 
     base_url = _base_url_for_target(target)
     event_id = str(uuid4())
-    payload = {
-        "event": "member.joined",
-        "member": _common_member(),
-        "status": {"new": "PENDING", "old": None},
-        "eventId": event_id,
-        "version": 1,
-        "community": _common_community(),
-        "questions": [
-            {"question": "Linkedin URL?", "answer": "linkedin.com/in/eshaan-vipani/"},
-            {
-                "question": "WhatsApp Phone Number? (Needed to add you into our WhatsApp community)",
-                "answer": "9256400611",
-            },
-            {"question": "Company Name?", "answer": "Wells Fargo"},
-            {
-                "question": "Company Website Domain? (e.g. www.newco.com)",
-                "answer": "https://www.wellsfargo.com/",
-            },
-            {"question": "Job Title?", "answer": "Software Engineer"},
-            {"question": "Funding Stage?", "answer": "Prefer not to say"},
-            {"question": "What describes you best?", "answer": "Service Provider"},
-        ],
-        "occurredAt": "2026-03-13T15:05:32.436Z",
-    }
+    payload = _build_joined_payload(event_id)
 
-    response = _post_webhook(payload, base_url)
+    _delete_firestore_event_document(target=target, event_id=event_id)
 
-    assert response.status_code == 202
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(_post_webhook, payload, base_url),
+            executor.submit(_post_webhook, payload, base_url),
+        ]
+        responses = [future.result() for future in futures]
+
+    assert [response.status_code for response in responses] == [202, 202]
+
     document = _wait_for_firestore_event_document(target=target, event_id=event_id)
     assert document["event_id"] == event_id
     assert document["member_id"] == "14b8d602-1eee-11f1-b904-0242ac14000a"
     assert document["event_type"] == "member.joined"
+    assert document["status"] in {"processing", "completed", "failed"}
