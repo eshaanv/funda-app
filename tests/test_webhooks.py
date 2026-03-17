@@ -466,6 +466,41 @@ def test_service_dispatches_approved_event_to_admin_notification(
     }
 
 
+def test_admin_notification_sentences_are_printed(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    payload = MemberApprovedWebhookPayload.model_validate(_build_approved_payload())
+
+    def fake_invoke_gemini(prompt: str) -> str:
+        if "Member details" in prompt:
+            return "Member sentence generated for testing."
+        return "Company sentence generated for testing."
+
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "invoke_gemini",
+        fake_invoke_gemini,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "get_linked_company_name_for_member",
+        lambda member_id, settings=None: "Acme AI",
+    )
+
+    member_sentence = keyai_webhooks.build_new_member_admin_member_sentence(payload)
+    company_sentence = keyai_webhooks.build_new_member_admin_company_sentence(
+        payload
+    )
+
+    print("Member sentence:", member_sentence)
+    print("Company sentence:", company_sentence)
+
+    captured = capsys.readouterr()
+    assert "Member sentence: Member sentence generated for testing." in captured.out
+    assert "Company sentence: Company sentence generated for testing." in captured.out
+
+
 def test_service_builds_company_sentence_with_fallback_when_company_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
