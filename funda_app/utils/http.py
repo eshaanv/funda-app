@@ -50,7 +50,10 @@ def request_json(
         raise error.HTTPError(
             url=exc.url,
             code=exc.code,
-            msg=response_body or exc.reason,
+            msg=(
+                f"{method} {url} failed with status {exc.code}: "
+                f"{response_body or exc.reason}"
+            ),
             hdrs=exc.headers,
             fp=None,
         ) from exc

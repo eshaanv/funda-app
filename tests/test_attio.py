@@ -1,4 +1,5 @@
 from datetime import datetime, UTC
+from urllib import error
 
 import pytest
 
@@ -402,3 +403,148 @@ def test_sync_attio_member_includes_job_title_and_company_website_in_payloads(
         if "companies/records" in c["url"] and "query" not in c["url"]
     )
     assert company_call["payload"]["data"]["values"]["company_website"] == "startup.com"
+
+
+def test_sync_attio_member_retries_company_sync_without_optional_fields_on_400(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_calls: list[dict[str, object]] = []
+
+    def fake_request_json(
+        method: str,
+        url: str,
+        payload: dict[str, object],
+        access_token: str,
+        timeout_seconds: float,
+    ) -> dict[str, object]:
+        captured_calls.append({"method": method, "url": url, "payload": payload})
+        if "companies/records" in url and "query" not in url:
+            if len(
+                [
+                    call
+                    for call in captured_calls
+                    if "companies/records" in call["url"] and "query" not in call["url"]
+                ]
+            ) == 1:
+                raise error.HTTPError(
+                    url=url,
+                    code=400,
+                    msg="invalid company_stage",
+                    hdrs=None,
+                    fp=None,
+                )
+            return {"data": {"id": {"record_id": "company-record-456"}}}
+        if "people/records" in url:
+            return {"data": {"id": {"record_id": "person-record-456"}}}
+        if "lists" in url:
+            return {"data": {"id": {"entry_id": "entry-456"}}}
+        return {"data": []}
+
+    monkeypatch.setattr(attio, "request_json", fake_request_json)
+
+    attio.sync_attio_member(
+        sync_request=AttioLifecycleSyncRequest(
+            event=MemberWebhookEvent.MEMBER_JOINED,
+            event_id="event-456",
+            occurred_at=datetime(2026, 3, 14, 16, 26, 12, tzinfo=UTC),
+            community_id="community-123",
+            community_name="funda",
+            member_status=MemberStatus.PENDING,
+            person=AttioPersonSyncPayload(
+                keyai_member_id="member-456",
+                email="founder@example.com",
+                full_name="Founder Name",
+                first_name="Founder",
+                last_name="Name",
+            ),
+            company=AttioCompanySyncPayload(
+                name="Startup Inc",
+                stage="Series A",
+                company_website="startup.com",
+            ),
+        ),
+        settings=AppSettings(
+            whatsapp_access_token="token",
+            whatsapp_phone_number_id="1029270380269800",
+            attio_api_key_dev="attio-token",
+            attio_founder_lifecycle_list_id_dev="list-123",
+        ),
+    )
+
+    company_calls = [
+        call
+        for call in captured_calls
+        if "companies/records" in call["url"] and "query" not in call["url"]
+    ]
+    assert len(company_calls) == 2
+    assert company_calls[0]["payload"]["data"]["values"]["company_stage"] == "Series A"
+    assert company_calls[0]["payload"]["data"]["values"]["company_website"] == "startup.com"
+    assert company_calls[1]["payload"]["data"]["values"] == {
+        "name": "Startup Inc",
+        "domains": [{"domain": "startup.com"}],
+    }
+
+
+def test_sync_attio_member_retries_person_sync_without_optional_fields_on_400(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_calls: list[dict[str, object]] = []
+
+    def fake_request_json(
+        method: str,
+        url: str,
+        payload: dict[str, object],
+        access_token: str,
+        timeout_seconds: float,
+    ) -> dict[str, object]:
+        captured_calls.append({"method": method, "url": url, "payload": payload})
+        if "people/records" in url:
+            if len([call for call in captured_calls if "people/records" in call["url"]]) == 1:
+                raise error.HTTPError(
+                    url=url,
+                    code=400,
+                    msg="invalid relationship attribute",
+                    hdrs=None,
+                    fp=None,
+                )
+            return {"data": {"id": {"record_id": "person-record-456"}}}
+        if "lists" in url:
+            return {"data": {"id": {"entry_id": "entry-456"}}}
+        return {"data": []}
+
+    monkeypatch.setattr(attio, "request_json", fake_request_json)
+
+    attio.sync_attio_member(
+        sync_request=AttioLifecycleSyncRequest(
+            event=MemberWebhookEvent.MEMBER_JOINED,
+            event_id="event-456",
+            occurred_at=datetime(2026, 3, 14, 16, 26, 12, tzinfo=UTC),
+            community_id="community-123",
+            community_name="funda",
+            member_status=MemberStatus.PENDING,
+            person=AttioPersonSyncPayload(
+                keyai_member_id="member-456",
+                email="founder@example.com",
+                full_name="Founder Name",
+                first_name="Founder",
+                last_name="Name",
+                phone="+15551234567",
+                linkedin_url="https://www.linkedin.com/in/founder",
+                job_title="CEO",
+            ),
+            company=None,
+        ),
+        settings=AppSettings(
+            whatsapp_access_token="token",
+            whatsapp_phone_number_id="1029270380269800",
+            attio_api_key_dev="attio-token",
+            attio_founder_lifecycle_list_id_dev="list-123",
+        ),
+    )
+
+    person_calls = [call for call in captured_calls if "people/records" in call["url"]]
+    assert len(person_calls) == 2
+    assert person_calls[0]["payload"]["data"]["values"]["linkedin"] == "https://www.linkedin.com/in/founder"
+    assert person_calls[0]["payload"]["data"]["values"]["job_title"] == "CEO"
+    assert "linkedin" not in person_calls[1]["payload"]["data"]["values"]
+    assert "job_title" not in person_calls[1]["payload"]["data"]["values"]
