@@ -7,12 +7,12 @@ from the provided context versus what still needs to be verified.
 """.strip()
 
 
-MEMBER_ENRICHMENT_PROMPT_TEMPLATE = """
-Write a concise enrichment summary for a newly joined community member.
+NEW_MEMBER_ADMIN_NOTIFICATION_PROMPT_TEMPLATE = """
+Write one factual sentence introducing an approved Funda community member.
 
 Use only the provided inputs. Do not infer facts that are not explicitly present.
-If information is missing, say that it is unknown.
-Keep the response short and useful for an operator reviewing a new member.
+Do not use hype, marketing language, or emojis.
+Return exactly one sentence.
 
 Member details:
 - Full name: {full_name}
@@ -20,9 +20,22 @@ Member details:
 - Last name: {last_name}
 - Email: {email}
 - Phone: {phone}
-- LinkedIn URL: {linkedin_url}
 - Company name: {company_name}
 - Company stage: {company_stage}
 - Community: {community_name}
-- Joined at: {occurred_at}
+- Approved at: {occurred_at}
+""".strip()
+
+
+NEW_MEMBER_ADMIN_COMPANY_PROMPT_TEMPLATE = """
+Write one factual sentence about the company associated with an approved Funda
+community member.
+
+Use only the provided inputs. Do not infer facts that are not explicitly present.
+Do not use hype, marketing language, or emojis.
+Return exactly one sentence.
+
+Company details:
+- Company name: {company_name}
+- Community: {community_name}
 """.strip()

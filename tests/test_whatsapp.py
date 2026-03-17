@@ -147,7 +147,11 @@ def test_get_whatsapp_template_definition_returns_registered_template(
     assert template.name.value == expected_name
 
     if template_name == WhatsAppTemplateName.FUNDA_NEW_MEMBER_ADMIN_NOTIFICATION:
-        assert template.body_parameter_names == ("full_name",)
+        assert template.body_parameter_names == (
+            "full_name",
+            "member_sentence",
+            "company_sentence",
+        )
         return
 
     assert template.body_parameter_names == ("first_name",)

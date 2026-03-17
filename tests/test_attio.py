@@ -548,3 +548,157 @@ def test_sync_attio_member_retries_person_sync_without_optional_fields_on_400(
     assert person_calls[0]["payload"]["data"]["values"]["job_title"] == "CEO"
     assert "linkedin" not in person_calls[1]["payload"]["data"]["values"]
     assert "job_title" not in person_calls[1]["payload"]["data"]["values"]
+
+
+def test_get_linked_company_name_for_member_returns_company_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_calls: list[dict[str, object]] = []
+
+    def fake_request_json(
+        method: str,
+        url: str,
+        payload: dict[str, object],
+        access_token: str,
+        timeout_seconds: float,
+    ) -> dict[str, object]:
+        captured_calls.append({"method": method, "url": url, "payload": payload})
+        if "people/records/query" in url:
+            return {
+                "data": [
+                    {
+                        "values": {
+                            "company": [
+                                {
+                                    "target_record_id": "company-record-123",
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        return {
+            "data": {
+                "values": {
+                    "name": "Acme AI",
+                }
+            }
+        }
+
+    monkeypatch.setattr(attio, "request_json", fake_request_json)
+
+    company_name = attio.get_linked_company_name_for_member(
+        member_id="member-123",
+        settings=AppSettings(
+            whatsapp_access_token="token",
+            whatsapp_phone_number_id="1029270380269800",
+            attio_api_key_dev="attio-token",
+            attio_founder_lifecycle_list_id_dev="list-123",
+        ),
+    )
+
+    assert company_name == "Acme AI"
+    assert captured_calls[0]["method"] == "POST"
+    assert captured_calls[1]["method"] == "GET"
+
+
+def test_get_linked_company_name_for_member_returns_none_without_person(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        attio,
+        "request_json",
+        lambda method, url, payload, access_token, timeout_seconds: {"data": []},
+    )
+
+    company_name = attio.get_linked_company_name_for_member(
+        member_id="member-123",
+        settings=AppSettings(
+            whatsapp_access_token="token",
+            whatsapp_phone_number_id="1029270380269800",
+            attio_api_key_dev="attio-token",
+            attio_founder_lifecycle_list_id_dev="list-123",
+        ),
+    )
+
+    assert company_name is None
+
+
+def test_get_linked_company_name_for_member_returns_none_without_company(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        attio,
+        "request_json",
+        lambda method, url, payload, access_token, timeout_seconds: {
+            "data": [{"values": {}}]
+        },
+    )
+
+    company_name = attio.get_linked_company_name_for_member(
+        member_id="member-123",
+        settings=AppSettings(
+            whatsapp_access_token="token",
+            whatsapp_phone_number_id="1029270380269800",
+            attio_api_key_dev="attio-token",
+            attio_founder_lifecycle_list_id_dev="list-123",
+        ),
+    )
+
+    assert company_name is None
+
+
+def test_get_latest_lifecycle_event_id_for_member_returns_event_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_calls: list[dict[str, object]] = []
+
+    def fake_request_json(
+        method: str,
+        url: str,
+        payload: dict[str, object],
+        access_token: str,
+        timeout_seconds: float,
+    ) -> dict[str, object]:
+        captured_calls.append({"method": method, "url": url, "payload": payload})
+        if "people/records/query" in url:
+            return {
+                "data": [
+                    {
+                        "id": {"record_id": "person-record-123"},
+                    }
+                ]
+            }
+        return {
+            "data": [
+                {
+                    "entry_values": {
+                        "last_keyai_event_id": "event-123",
+                    }
+                }
+            ]
+        }
+
+    monkeypatch.setattr(attio, "request_json", fake_request_json)
+
+    event_id = attio.get_latest_lifecycle_event_id_for_member(
+        member_id="member-123",
+        settings=AppSettings(
+            whatsapp_access_token="token",
+            whatsapp_phone_number_id="1029270380269800",
+            attio_api_key_dev="attio-token",
+            attio_founder_lifecycle_list_id_dev="list-123",
+        ),
+    )
+
+    assert event_id == "event-123"
+    assert captured_calls[1]["url"] == "https://api.attio.com/v2/lists/list-123/entries/query"
+    assert captured_calls[1]["payload"] == {
+        "filter": {
+            "parent_record_id": {
+                "$eq": "person-record-123",
+            }
+        },
+        "limit": 1,
+        "offset": 0,
+    }

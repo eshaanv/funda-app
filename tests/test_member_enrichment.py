@@ -47,7 +47,7 @@ def _build_joined_payload() -> dict[str, object]:
 
 
 def test_build_enrichment_request_uses_questions_fallback() -> None:
-    payload = MemberJoinedWebhookPayload.model_validate(_build_joined_payload())
+    MemberJoinedWebhookPayload.model_validate(_build_joined_payload())
 
 
 def test_build_enrichment_request_prefers_top_level_fields() -> None:

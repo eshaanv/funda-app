@@ -64,6 +64,102 @@ def sync_attio_member(
     )
 
 
+def get_linked_company_name_for_member(
+    member_id: str,
+    settings: AppSettings | None = None,
+) -> str | None:
+    """
+    Returns the linked Attio company name for a Key.ai member ID.
+
+    Args:
+        member_id (str): Key.ai member ID stored on the person record.
+        settings (AppSettings | None, optional): Runtime settings override.
+            Defaults to None.
+
+    Returns:
+        str | None: Linked company name when found, otherwise None.
+    """
+    runtime_settings = settings or get_app_settings()
+    _validate_attio_settings(runtime_settings)
+
+    person_record = _find_person_record_by_member_id(
+        member_id=member_id,
+        settings=runtime_settings,
+    )
+    if person_record is None:
+        return None
+
+    company_record_id = _extract_company_record_id_from_person(person_record)
+    if company_record_id is None:
+        return None
+
+    company_record = request_json(
+        method="GET",
+        url=(
+            f"{runtime_settings.attio_base_url.rstrip('/')}/objects/"
+            f"{ATTIO_SCHEMA.company.object_slug}/records/{company_record_id}"
+        ),
+        payload={},
+        access_token=runtime_settings.attio_api_key or "",
+        timeout_seconds=runtime_settings.attio_timeout_seconds,
+    )
+    return _extract_company_name_from_record(company_record.get("data"))
+
+
+def get_latest_lifecycle_event_id_for_member(
+    member_id: str,
+    settings: AppSettings | None = None,
+) -> str | None:
+    """
+    Returns the most recent lifecycle event ID stored for a Key.ai member.
+
+    Args:
+        member_id (str): Key.ai member ID stored on the person record.
+        settings (AppSettings | None, optional): Runtime settings override.
+            Defaults to None.
+
+    Returns:
+        str | None: Latest stored lifecycle event ID when found, otherwise None.
+    """
+    runtime_settings = settings or get_app_settings()
+    _validate_attio_settings(runtime_settings)
+
+    person_record = _find_person_record_by_member_id(
+        member_id=member_id,
+        settings=runtime_settings,
+    )
+    if person_record is None:
+        return None
+
+    person_record_id = _extract_record_id_from_data(person_record.get("id"))
+    if person_record_id is None:
+        return None
+
+    response = request_json(
+        method="POST",
+        url=(
+            f"{runtime_settings.attio_base_url.rstrip('/')}/lists/"
+            f"{runtime_settings.attio_founder_lifecycle_list_id}/entries/query"
+        ),
+        payload={
+            "filter": {
+                "parent_record_id": {
+                    "$eq": person_record_id,
+                }
+            },
+            "limit": 1,
+            "offset": 0,
+        },
+        access_token=runtime_settings.attio_api_key or "",
+        timeout_seconds=runtime_settings.attio_timeout_seconds,
+    )
+    entries = response.get("data", [])
+    if not entries:
+        return None
+
+    return _extract_lifecycle_event_id_from_entry(entries[0])
+
+
 def _validate_attio_settings(settings: AppSettings) -> None:
     if settings.attio_api_key is None or not settings.attio_api_key.strip():
         raise ValueError(f"Set the Attio API key in env - {settings.app_env}")
@@ -153,6 +249,37 @@ def _find_company_record_id_by_name(
         return None
 
     return records[0]["id"]["record_id"]
+
+
+def _find_person_record_by_member_id(
+    member_id: str,
+    settings: AppSettings,
+) -> Mapping[str, object] | None:
+    response = request_json(
+        method="POST",
+        url=(
+            f"{settings.attio_base_url.rstrip('/')}/objects/"
+            f"{ATTIO_SCHEMA.person.object_slug}/records/query"
+        ),
+        payload={
+            "filter": {
+                ATTIO_SCHEMA.person.external_id_attribute: {
+                    "value": {
+                        "$eq": member_id,
+                    }
+                }
+            },
+            "limit": 1,
+            "offset": 0,
+        },
+        access_token=settings.attio_api_key or "",
+        timeout_seconds=settings.attio_timeout_seconds,
+    )
+    records = response.get("data", [])
+    if not records:
+        return None
+
+    return records[0]
 
 
 def _assert_person_record(
@@ -401,3 +528,97 @@ def _extract_record_id(response: Mapping[str, object]) -> str:
 
 def _extract_entry_id(response: Mapping[str, object]) -> str:
     return response["data"]["id"]["entry_id"]
+
+
+def _extract_record_id_from_data(data: object) -> str | None:
+    if not isinstance(data, Mapping):
+        return None
+
+    record_id = data.get("record_id")
+    if isinstance(record_id, str) and record_id.strip():
+        return record_id
+
+    return None
+
+
+def _extract_company_record_id_from_person(
+    person_record: Mapping[str, object],
+) -> str | None:
+    values = person_record.get("values", {})
+    if not isinstance(values, Mapping):
+        return None
+
+    company_values = values.get(ATTIO_SCHEMA.person.company_relationship_attribute, [])
+    if not isinstance(company_values, list) or not company_values:
+        return None
+
+    first_company = company_values[0]
+    if not isinstance(first_company, Mapping):
+        return None
+
+    record_id = first_company.get("target_record_id")
+    if isinstance(record_id, str) and record_id.strip():
+        return record_id
+
+    nested_target = first_company.get("target_record")
+    if isinstance(nested_target, Mapping):
+        nested_id = nested_target.get("id")
+        if isinstance(nested_id, Mapping):
+            record_id = nested_id.get("record_id")
+            if isinstance(record_id, str) and record_id.strip():
+                return record_id
+
+    return None
+
+
+def _extract_company_name_from_record(
+    company_record: object,
+) -> str | None:
+    if not isinstance(company_record, Mapping):
+        return None
+
+    values = company_record.get("values", {})
+    if not isinstance(values, Mapping):
+        return None
+
+    company_name = values.get(ATTIO_SCHEMA.company.name_attribute)
+    if isinstance(company_name, str) and company_name.strip():
+        return company_name.strip()
+
+    if isinstance(company_name, list) and company_name:
+        first_value = company_name[0]
+        if isinstance(first_value, Mapping):
+            value = first_value.get("value")
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+
+    return None
+
+
+def _extract_lifecycle_event_id_from_entry(
+    entry: object,
+) -> str | None:
+    if not isinstance(entry, Mapping):
+        return None
+
+    entry_values = entry.get("entry_values", {})
+    if not isinstance(entry_values, Mapping):
+        return None
+
+    event_value = entry_values.get(ATTIO_SCHEMA.lifecycle.last_event_id_attribute)
+    if isinstance(event_value, str) and event_value.strip():
+        return event_value.strip()
+
+    if isinstance(event_value, list) and event_value:
+        first_value = event_value[0]
+        if isinstance(first_value, Mapping):
+            value = first_value.get("value")
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+
+    if isinstance(event_value, Mapping):
+        value = event_value.get("value")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    return None
