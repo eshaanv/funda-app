@@ -12,8 +12,10 @@ from funda_app.schemas.webhooks import (
 )
 from funda_app.schemas.whatsapp import (
     WhatsAppTemplateSendRequest,
+    WhatsAppTemplateName,
     whatsapp_template_name_for_event,
 )
+from funda_app.app_settings import AppSettings, get_app_settings
 from funda_app.utils import normalize_phone_number
 from funda_app.services.attio import sync_attio_member
 from funda_app.services.keyai_questions import (
@@ -205,6 +207,72 @@ def dispatch_keyai_whatsapp_message(payload: BaseMemberWebhookPayload) -> None:
 
     logger.info(
         "WhatsApp dispatch completed: event=%s member_id=%s template=%s status=%s message_id=%s",
+        payload.event,
+        payload.member.id,
+        send_request.template_name,
+        result.status,
+        result.message_id,
+    )
+
+
+def build_new_member_admin_notification_request(
+    payload: BaseMemberWebhookPayload,
+    settings: AppSettings | None = None,
+) -> WhatsAppTemplateSendRequest | None:
+    """
+    Builds an admin notification request for approved members.
+
+    Args:
+        payload (BaseMemberWebhookPayload): Validated Key.ai webhook payload.
+        settings (AppSettings | None, optional): Explicit runtime settings.
+            Defaults to None.
+
+    Returns:
+        WhatsAppTemplateSendRequest | None: Admin notification request for
+            approved members, otherwise None.
+    """
+    if payload.event != payload.event.MEMBER_APPROVED:
+        return None
+
+    runtime_settings = settings or get_app_settings()
+
+    if not runtime_settings.new_member_admin_phone:
+        return None
+
+    return WhatsAppTemplateSendRequest(
+        to=runtime_settings.new_member_admin_phone,
+        template_name=WhatsAppTemplateName.FUNDA_NEW_MEMBER_ADMIN_NOTIFICATION,
+        template_metadata={
+            "full_name": payload.member.fullName,
+        },
+    )
+
+
+def dispatch_new_member_admin_notification(payload: BaseMemberWebhookPayload) -> None:
+    """
+    Dispatches an approved-member admin notification.
+
+    Args:
+        payload (BaseMemberWebhookPayload): Validated Key.ai webhook payload.
+    """
+    send_request = build_new_member_admin_notification_request(payload)
+
+    if send_request is None:
+        return
+
+    try:
+        result = send_whatsapp_template_message(send_request)
+    except Exception:
+        logger.exception(
+            "Admin notification failed: event=%s member_id=%s template=%s",
+            payload.event,
+            payload.member.id,
+            send_request.template_name,
+        )
+        return
+
+    logger.info(
+        "Admin notification completed: event=%s member_id=%s template=%s status=%s message_id=%s",
         payload.event,
         payload.member.id,
         send_request.template_name,

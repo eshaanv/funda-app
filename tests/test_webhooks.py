@@ -241,6 +241,30 @@ def test_service_builds_joined_whatsapp_request() -> None:
     assert send_request.template_metadata == {"first_name": "Rohan"}
 
 
+def test_service_builds_approved_admin_notification_request() -> None:
+    send_request = keyai_webhooks.build_new_member_admin_notification_request(
+        payload=MemberApprovedWebhookPayload.model_validate(_build_approved_payload()),
+        settings=type("Settings", (), {"new_member_admin_phone": "15551234567"})(),
+    )
+
+    assert send_request is not None
+    assert send_request.to == "15551234567"
+    assert (
+        send_request.template_name
+        == WhatsAppTemplateName.FUNDA_NEW_MEMBER_ADMIN_NOTIFICATION
+    )
+    assert send_request.template_metadata == {"full_name": "Rohan Jain"}
+
+
+def test_service_skips_non_approved_admin_notification_request() -> None:
+    send_request = keyai_webhooks.build_new_member_admin_notification_request(
+        payload=MemberJoinedWebhookPayload.model_validate(_build_joined_payload()),
+        settings=type("Settings", (), {"new_member_admin_phone": "15551234567"})(),
+    )
+
+    assert send_request is None
+
+
 def test_service_builds_attio_sync_request_with_question_fallbacks() -> None:
     sync_request = keyai_webhooks.build_keyai_attio_sync_request(
         payload=MemberJoinedWebhookPayload.model_validate(_build_joined_payload()),
@@ -362,6 +386,40 @@ def test_service_dispatches_non_joined_event_to_whatsapp(
 
     assert send_request.template_name == expected_template_name
     assert send_request.template_metadata == {"first_name": "Rohan"}
+
+
+def test_service_dispatches_approved_event_to_admin_notification(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_sender(send_request) -> WhatsAppDispatchResult:
+        captured["send_request"] = send_request
+        return WhatsAppDispatchResult(
+            status="sent",
+            detail="accepted",
+            message_id="wamid.456",
+        )
+
+    monkeypatch.setattr(keyai_webhooks, "send_whatsapp_template_message", fake_sender)
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "get_app_settings",
+        lambda: type("Settings", (), {"new_member_admin_phone": "15551234567"})(),
+    )
+
+    keyai_webhooks.dispatch_new_member_admin_notification(
+        payload=MemberApprovedWebhookPayload.model_validate(_build_approved_payload()),
+    )
+
+    send_request = captured["send_request"]
+
+    assert send_request.to == "15551234567"
+    assert (
+        send_request.template_name
+        == WhatsAppTemplateName.FUNDA_NEW_MEMBER_ADMIN_NOTIFICATION
+    )
+    assert send_request.template_metadata == {"full_name": "Rohan Jain"}
 
 
 def test_service_dispatches_member_event_to_attio(

@@ -129,6 +129,10 @@ def test_send_request_rejects_unknown_template_name() -> None:
             WhatsAppTemplateName.FUNDA_MEMBERSHIP_REJECTED,
             "funda_membership_rejected",
         ),
+        (
+            WhatsAppTemplateName.FUNDA_NEW_MEMBER_ADMIN_NOTIFICATION,
+            "funda_new_member_admin_notification",
+        ),
     ],
 )
 def test_get_whatsapp_template_definition_returns_registered_template(
@@ -140,5 +144,10 @@ def test_get_whatsapp_template_definition_returns_registered_template(
     assert template.name == template_name
     assert template.language == "en"
     assert template.category == "UTILITY"
-    assert template.body_parameter_names == ("first_name",)
     assert template.name.value == expected_name
+
+    if template_name == WhatsAppTemplateName.FUNDA_NEW_MEMBER_ADMIN_NOTIFICATION:
+        assert template.body_parameter_names == ("full_name",)
+        return
+
+    assert template.body_parameter_names == ("first_name",)
