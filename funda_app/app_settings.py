@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from funda_app.settings import GeminiClientSettings
+from funda_app.settings import FirestoreClientSettings, GeminiClientSettings
 
 
 class AppSettings(BaseSettings):
@@ -34,7 +34,7 @@ class AppSettings(BaseSettings):
         validation_alias=AliasChoices("ATTIO_API_KEY_PROD"),
     )
     attio_base_url: str = "https://api.attio.com/v2"
-    attio_timeout_seconds: float = 10.0
+    attio_timeout_seconds: float = 20.0
     attio_founder_lifecycle_list_id_dev: str | None = Field(
         default=None,
         validation_alias=AliasChoices("ATTIO_FOUNDER_LIFECYCLE_LIST_ID_DEV"),
@@ -57,6 +57,16 @@ class AppSettings(BaseSettings):
         extra="ignore",
         populate_by_name=True,
     )
+
+    @cached_property
+    def firestore_client_settings(self) -> FirestoreClientSettings:
+        """
+        Returns Firestore client settings with initialized configuration.
+
+        Returns:
+            FirestoreClientSettings: Configured Firestore client settings.
+        """
+        return FirestoreClientSettings()
 
     @cached_property
     def gemini_client_settings(self) -> GeminiClientSettings:

@@ -1,4 +1,4 @@
-.PHONY: auth _ensure-local-webhook-ready test-local-webhook test-local-webhook-joined test-local-webhook-approved test-local-webhook-rejected test-local-webhook-removed test-local-webhook-left test-dev-webhook test-dev-webhook-joined test-dev-webhook-approved test-dev-webhook-rejected test-dev-webhook-removed test-dev-webhook-left test-prod-webhook test-prod-webhook-joined test-prod-webhook-approved test-prod-webhook-rejected test-prod-webhook-removed test-prod-webhook-left run-local-container logs-local-container
+.PHONY: auth _ensure-local-webhook-ready test-local-webhook test-local-webhook-joined test-local-webhook-approved test-local-webhook-rejected test-local-webhook-removed test-local-webhook-left test-local-webhook-firestore test-dev-webhook test-dev-webhook-joined test-dev-webhook-approved test-dev-webhook-rejected test-dev-webhook-removed test-dev-webhook-left test-prod-webhook test-prod-webhook-joined test-prod-webhook-approved test-prod-webhook-rejected test-prod-webhook-removed test-prod-webhook-left run-local-container logs-local-container
 .PHONY: attio-founder-lifecycle-attributes attio-people-attributes attio-company-attributes
 
 APP_ENV ?= dev
@@ -58,6 +58,7 @@ attio-company-attributes-prod:
 	@$(MAKE) APP_ENV=prod attio-company-attributes
 
 WEBHOOK_PYTEST = RUN_LOCAL_WEBHOOK_TESTS=1 LOCAL_WEBHOOK_BASE_URL="$(LOCAL_WEBHOOK_BASE_URL)" WEBHOOK_TEST_TARGET=local uv run pytest tests/test_webhooks_functional.py -q
+WEBHOOK_FIRESTORE_PYTEST = RUN_LOCAL_WEBHOOK_TESTS=1 LOCAL_WEBHOOK_BASE_URL="$(LOCAL_WEBHOOK_BASE_URL)" WEBHOOK_TEST_TARGET=local LOCAL_FIRESTORE_PROJECT_ID="$(if $(LOCAL_FIRESTORE_PROJECT_ID),$(LOCAL_FIRESTORE_PROJECT_ID),$(GOOGLE_CLOUD_PROJECT))" uv run pytest tests/test_webhooks_functional.py -k "test_member_joined_webhook_dedupes_concurrent_duplicate_event_ids[local]" -q
 WEBHOOK_PYTEST_DEV = RUN_LOCAL_WEBHOOK_TESTS=1 APP_ENV=dev WEBHOOK_TEST_TARGET=dev uv run pytest tests/test_webhooks_functional.py -k "dev" -q
 WEBHOOK_PYTEST_PROD = RUN_LOCAL_WEBHOOK_TESTS=1 APP_ENV=prod WEBHOOK_TEST_TARGET=prod uv run pytest tests/test_webhooks_functional.py -k "prod" -q
 
@@ -91,6 +92,9 @@ test-local-webhook-removed: _ensure-local-webhook-ready
 
 test-local-webhook-left: _ensure-local-webhook-ready
 	$(WEBHOOK_PYTEST) -k "test_member_left_webhook[local]"
+
+test-local-webhook-firestore: _ensure-local-webhook-ready
+	$(WEBHOOK_FIRESTORE_PYTEST)
 
 test-dev-webhook:
 	$(WEBHOOK_PYTEST_DEV)

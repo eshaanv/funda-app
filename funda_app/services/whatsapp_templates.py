@@ -25,7 +25,7 @@ FUNDA_NEW_MEMBER_ADMIN_NOTIFICATION_TEMPLATE = WhatsAppTemplateDefinition(
     name=WhatsAppTemplateName.FUNDA_NEW_MEMBER_ADMIN_NOTIFICATION,
     language="en",
     category="UTILITY",
-    body_parameter_names=("full_name",),
+    body_parameter_names=("full_name", "member_sentence", "company_sentence"),
 )
 
 WHATSAPP_TEMPLATE_REGISTRY: dict[WhatsAppTemplateName, WhatsAppTemplateDefinition] = {
