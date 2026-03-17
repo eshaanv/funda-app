@@ -87,3 +87,15 @@ def invoke_gemini(
         return response.text
 
     return None
+
+
+def build_google_search_config() -> GenerateContentConfig:
+    """
+    Returns a Gemini generation config with Google Search grounding enabled.
+
+    Returns:
+        GenerateContentConfig: Generation config using the Google Search tool.
+    """
+    return GenerateContentConfig(
+        tools=[types.Tool(google_search=types.GoogleSearch())],
+    )

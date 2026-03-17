@@ -1,7 +1,29 @@
 from functools import cached_property
 
 from google import genai
+from google.cloud import firestore
 from pydantic import BaseModel, ConfigDict
+
+
+class FirestoreClientSettings(BaseModel):
+    """
+    Configuration for the Firestore client.
+
+    Attributes:
+        client: Initialized Firestore client instance (via cached_property).
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @cached_property
+    def client(self) -> firestore.Client:
+        """
+        Returns initialized Firestore client.
+
+        Returns:
+            firestore.Client: Configured Firestore client instance.
+        """
+        return firestore.Client()
 
 
 class GeminiClientSettings(BaseModel):

@@ -1,7 +1,12 @@
 import os
+import time
+from uuid import uuid4
 
 import httpx
 import pytest
+from google.cloud import firestore
+
+from funda_app.services.idempotency import KEYAI_WEBHOOK_COLLECTION
 
 # Base URL env vars per target. Override with env to point at different instances.
 LOCAL_WEBHOOK_BASE_URL = os.environ.get(
@@ -22,6 +27,12 @@ PROD_WEBHOOK_BASE_URL = os.environ.get(
 WEBHOOK_TEST_TARGET = os.environ.get("WEBHOOK_TEST_TARGET")
 
 WEBHOOK_TARGETS = ["local", "dev", "prod"]
+LOCAL_FIRESTORE_PROJECT_ID = os.environ.get(
+    "LOCAL_FIRESTORE_PROJECT_ID",
+    os.environ.get("GOOGLE_CLOUD_PROJECT"),
+)
+DEV_FIRESTORE_PROJECT_ID = os.environ.get("DEV_FIRESTORE_PROJECT_ID")
+PROD_FIRESTORE_PROJECT_ID = os.environ.get("PROD_FIRESTORE_PROJECT_ID")
 
 
 def _webhook_test_enabled() -> bool:
@@ -40,6 +51,17 @@ def _base_url_for_target(target: str) -> str | None:
         return DEV_WEBHOOK_BASE_URL.rstrip("/") if DEV_WEBHOOK_BASE_URL else None
     if target == "prod":
         return PROD_WEBHOOK_BASE_URL.rstrip("/") if PROD_WEBHOOK_BASE_URL else None
+    return None
+
+
+def _firestore_project_id_for_target(target: str) -> str | None:
+    """Returns the Firestore project ID for the given target, or None if not configured."""
+    if target == "local":
+        return LOCAL_FIRESTORE_PROJECT_ID
+    if target == "dev":
+        return DEV_FIRESTORE_PROJECT_ID
+    if target == "prod":
+        return PROD_FIRESTORE_PROJECT_ID
     return None
 
 
@@ -87,6 +109,48 @@ def _should_skip_target(target: str) -> tuple[bool, str]:
     if base_url is None:
         return True, f"No base URL for {target!r}. Set {'DEV_WEBHOOK_BASE_URL' if target == 'dev' else 'PROD_WEBHOOK_BASE_URL'}."
     return False, ""
+
+
+def _should_skip_firestore_target(target: str) -> tuple[bool, str]:
+    """Returns (skip, reason) for Firestore-backed webhook functional tests."""
+    skip, reason = _should_skip_target(target)
+    if skip:
+        return skip, reason
+    if _firestore_project_id_for_target(target) is None:
+        return True, (
+            f"No Firestore project ID for {target!r}. "
+            f"Set {'LOCAL_FIRESTORE_PROJECT_ID or GOOGLE_CLOUD_PROJECT' if target == 'local' else 'DEV_FIRESTORE_PROJECT_ID' if target == 'dev' else 'PROD_FIRESTORE_PROJECT_ID'}."
+        )
+    return False, ""
+
+
+def _wait_for_firestore_event_document(
+    target: str,
+    event_id: str,
+    timeout_seconds: float = 10.0,
+) -> dict[str, object]:
+    """Polls Firestore until the idempotency document for the event appears."""
+    project_id = _firestore_project_id_for_target(target)
+    if project_id is None:
+        pytest.fail(f"Missing Firestore project ID for target {target!r}")
+
+    client = firestore.Client(project=project_id)
+    document_ref = client.collection(KEYAI_WEBHOOK_COLLECTION).document(event_id)
+    deadline = time.time() + timeout_seconds
+
+    while time.time() < deadline:
+        snapshot = document_ref.get()
+        if snapshot.exists:
+            data = snapshot.to_dict()
+            if data is None:
+                pytest.fail(f"Firestore document {event_id!r} exists but has no data")
+            return data
+        time.sleep(0.5)
+
+    pytest.fail(
+        f"Timed out waiting for Firestore document {KEYAI_WEBHOOK_COLLECTION}/{event_id} "
+        f"in project {project_id}"
+    )
 
 
 @pytest.mark.parametrize("target", WEBHOOK_TARGETS)
@@ -242,3 +306,51 @@ def test_member_left_webhook(target: str) -> None:
         "event": "member.left",
         "user_id": "14b8d602-1eee-11f1-b904-0242ac14000a",
     }
+
+
+@pytest.mark.parametrize("target", ["local"])
+@pytest.mark.skipif(
+    not _webhook_test_enabled(),
+    reason="Set RUN_LOCAL_WEBHOOK_TESTS=1 or WEBHOOK_TEST_TARGET=local|dev|prod to run.",
+)
+def test_member_joined_webhook_creates_firestore_idempotency_record(
+    target: str,
+) -> None:
+    skip, reason = _should_skip_firestore_target(target)
+    if skip:
+        pytest.skip(reason)
+
+    base_url = _base_url_for_target(target)
+    event_id = str(uuid4())
+    payload = {
+        "event": "member.joined",
+        "member": _common_member(),
+        "status": {"new": "PENDING", "old": None},
+        "eventId": event_id,
+        "version": 1,
+        "community": _common_community(),
+        "questions": [
+            {"question": "Linkedin URL?", "answer": "linkedin.com/in/eshaan-vipani/"},
+            {
+                "question": "WhatsApp Phone Number? (Needed to add you into our WhatsApp community)",
+                "answer": "9256400611",
+            },
+            {"question": "Company Name?", "answer": "Wells Fargo"},
+            {
+                "question": "Company Website Domain? (e.g. www.newco.com)",
+                "answer": "https://www.wellsfargo.com/",
+            },
+            {"question": "Job Title?", "answer": "Software Engineer"},
+            {"question": "Funding Stage?", "answer": "Prefer not to say"},
+            {"question": "What describes you best?", "answer": "Service Provider"},
+        ],
+        "occurredAt": "2026-03-13T15:05:32.436Z",
+    }
+
+    response = _post_webhook(payload, base_url)
+
+    assert response.status_code == 202
+    document = _wait_for_firestore_event_document(target=target, event_id=event_id)
+    assert document["event_id"] == event_id
+    assert document["member_id"] == "14b8d602-1eee-11f1-b904-0242ac14000a"
+    assert document["event_type"] == "member.joined"

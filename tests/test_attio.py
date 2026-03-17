@@ -31,6 +31,7 @@ def test_sync_attio_member_posts_expected_payloads_without_company(
         payload: dict[str, object],
         access_token: str,
         timeout_seconds: float,
+        retry_attempts: int = 1,
     ) -> dict[str, object]:
         captured_calls.append(
             {
@@ -106,7 +107,7 @@ def test_sync_attio_member_posts_expected_payloads_without_company(
                 }
             },
             "access_token": "attio-token",
-            "timeout_seconds": 10.0,
+            "timeout_seconds": 20.0,
         },
         {
             "method": "PUT",
@@ -127,7 +128,7 @@ def test_sync_attio_member_posts_expected_payloads_without_company(
                 }
             },
             "access_token": "attio-token",
-            "timeout_seconds": 10.0,
+            "timeout_seconds": 20.0,
         },
     ]
 
@@ -143,6 +144,7 @@ def test_sync_attio_member_syncs_company_before_person_and_list_entry(
         payload: dict[str, object],
         access_token: str,
         timeout_seconds: float,
+        retry_attempts: int = 1,
     ) -> dict[str, object]:
         captured_calls.append(
             {
@@ -288,6 +290,7 @@ def test_sync_attio_member_asserts_company_by_domain_when_company_website_presen
         payload: dict[str, object],
         access_token: str,
         timeout_seconds: float,
+        retry_attempts: int = 1,
     ) -> dict[str, object]:
         captured_calls.append({"method": method, "url": url, "payload": payload})
         if "objects/companies/records?" in url:
@@ -350,6 +353,7 @@ def test_sync_attio_member_includes_job_title_and_company_website_in_payloads(
         payload: dict[str, object],
         access_token: str,
         timeout_seconds: float,
+        retry_attempts: int = 1,
     ) -> dict[str, object]:
         captured_calls.append({"method": method, "url": url, "payload": payload})
         if "people/records" in url:
@@ -416,6 +420,7 @@ def test_sync_attio_member_retries_company_sync_without_optional_fields_on_400(
         payload: dict[str, object],
         access_token: str,
         timeout_seconds: float,
+        retry_attempts: int = 1,
     ) -> dict[str, object]:
         captured_calls.append({"method": method, "url": url, "payload": payload})
         if "companies/records" in url and "query" not in url:
@@ -496,6 +501,7 @@ def test_sync_attio_member_retries_person_sync_without_optional_fields_on_400(
         payload: dict[str, object],
         access_token: str,
         timeout_seconds: float,
+        retry_attempts: int = 1,
     ) -> dict[str, object]:
         captured_calls.append({"method": method, "url": url, "payload": payload})
         if "people/records" in url:
@@ -561,6 +567,7 @@ def test_get_linked_company_name_for_member_returns_company_name(
         payload: dict[str, object],
         access_token: str,
         timeout_seconds: float,
+        retry_attempts: int = 1,
     ) -> dict[str, object]:
         captured_calls.append({"method": method, "url": url, "payload": payload})
         if "people/records/query" in url:
@@ -608,7 +615,7 @@ def test_get_linked_company_name_for_member_returns_none_without_person(
     monkeypatch.setattr(
         attio,
         "request_json",
-        lambda method, url, payload, access_token, timeout_seconds: {"data": []},
+        lambda method, url, payload, access_token, timeout_seconds, retry_attempts=1: {"data": []},
     )
 
     company_name = attio.get_linked_company_name_for_member(
@@ -630,7 +637,7 @@ def test_get_linked_company_name_for_member_returns_none_without_company(
     monkeypatch.setattr(
         attio,
         "request_json",
-        lambda method, url, payload, access_token, timeout_seconds: {
+        lambda method, url, payload, access_token, timeout_seconds, retry_attempts=1: {
             "data": [{"values": {}}]
         },
     )
@@ -659,6 +666,7 @@ def test_get_latest_lifecycle_event_id_for_member_returns_event_id(
         payload: dict[str, object],
         access_token: str,
         timeout_seconds: float,
+        retry_attempts: int = 1,
     ) -> dict[str, object]:
         captured_calls.append({"method": method, "url": url, "payload": payload})
         if "people/records/query" in url:
@@ -702,3 +710,4 @@ def test_get_latest_lifecycle_event_id_for_member_returns_event_id(
         "limit": 1,
         "offset": 0,
     }
+

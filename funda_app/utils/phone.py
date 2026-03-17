@@ -32,3 +32,19 @@ def normalize_phone_number(raw_value: str | None) -> str | None:
 
     return f"+{digits}"
 
+
+def get_country_code(phone_number: str) -> str | None:
+    """
+    Returns the country code for a phone number when determinable.
+
+    Args:
+        phone_number: E.164-like phone number (e.g. +1...).
+
+    Returns:
+        ISO country code (e.g. "US") or None if not recognized.
+    """
+    if phone_number.startswith("+1"):
+        return "US"
+
+    return None
+

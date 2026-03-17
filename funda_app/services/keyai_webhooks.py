@@ -3,7 +3,7 @@ import logging
 from funda_app.agents.models import invoke_gemini
 from funda_app.agents.prompt import (
     NEW_MEMBER_ADMIN_COMPANY_PROMPT_TEMPLATE,
-    NEW_MEMBER_ADMIN_NOTIFICATION_PROMPT_TEMPLATE,
+    NEW_MEMBER_ADMIN_MEMBER_PROMPT_TEMPLATE,
 )
 from funda_app.schemas.crm import (
     AttioCompanySyncPayload,
@@ -24,9 +24,15 @@ from funda_app.schemas.whatsapp import (
 from funda_app.app_settings import AppSettings, get_app_settings
 from funda_app.utils import normalize_phone_number
 from funda_app.services.attio import (
-    get_latest_lifecycle_event_id_for_member,
     get_linked_company_name_for_member,
     sync_attio_member,
+)
+from funda_app.services.idempotency import (
+    begin_keyai_event_processing,
+    mark_keyai_event_attio_done,
+    mark_keyai_event_completed,
+    mark_keyai_event_failed,
+    mark_keyai_event_whatsapp_done,
 )
 from funda_app.services.keyai_questions import (
     get_company_name,
@@ -156,7 +162,22 @@ def dispatch_keyai_member_tasks(payload: BaseMemberWebhookPayload) -> None:
     Args:
         payload (BaseMemberWebhookPayload): Validated member webhook payload.
     """
-    if is_duplicate_keyai_member_event(payload):
+    try:
+        processing_state = begin_keyai_event_processing(
+            event_id=payload.eventId,
+            member_id=payload.member.id,
+            event_type=payload.event.value,
+        )
+    except Exception:
+        logger.exception(
+            "Key.ai event claim failed: event=%s member_id=%s event_id=%s",
+            payload.event,
+            payload.member.id,
+            payload.eventId,
+        )
+        return
+
+    if not processing_state.should_process:
         logger.info(
             "Skipping duplicate member event: event=%s member_id=%s event_id=%s",
             payload.event,
@@ -165,44 +186,37 @@ def dispatch_keyai_member_tasks(payload: BaseMemberWebhookPayload) -> None:
         )
         return
 
-    dispatch_keyai_attio_sync(payload)
-    dispatch_keyai_whatsapp_message(payload)
-
-
-def is_duplicate_keyai_member_event(
-    payload: BaseMemberWebhookPayload,
-    settings: AppSettings | None = None,
-) -> bool:
-    """
-    Returns whether a Key.ai member event was already processed.
-
-    Args:
-        payload (BaseMemberWebhookPayload): Validated Key.ai webhook payload.
-        settings (AppSettings | None, optional): Runtime settings override.
-            Defaults to None.
-
-    Returns:
-        bool: True when the lifecycle record already contains the same event ID.
-    """
     try:
-        latest_event_id = get_latest_lifecycle_event_id_for_member(
-            member_id=payload.member.id,
-            settings=settings,
-        )
-    except Exception as exc:
-        logger.warning(
-            "Duplicate check failed; continuing without dedupe: event=%s member_id=%s event_id=%s error=%s",
+        if not processing_state.attio_done:
+            if not dispatch_keyai_attio_sync(payload):
+                mark_keyai_event_failed(
+                    event_id=payload.eventId,
+                    error_message="attio_sync_failed",
+                )
+                return
+            mark_keyai_event_attio_done(payload.eventId)
+
+        if not processing_state.whatsapp_done:
+            if not dispatch_keyai_whatsapp_message(payload):
+                mark_keyai_event_failed(
+                    event_id=payload.eventId,
+                    error_message="whatsapp_dispatch_failed",
+                )
+                return
+            mark_keyai_event_whatsapp_done(payload.eventId)
+
+        mark_keyai_event_completed(payload.eventId)
+    except Exception:
+        logger.exception(
+            "Key.ai event progress update failed: event=%s member_id=%s event_id=%s",
             payload.event,
             payload.member.id,
             payload.eventId,
-            str(exc),
         )
-        return False
-
-    return latest_event_id == payload.eventId
+        return
 
 
-def dispatch_keyai_attio_sync(payload: BaseMemberWebhookPayload) -> None:
+def dispatch_keyai_attio_sync(payload: BaseMemberWebhookPayload) -> bool:
     """
     Syncs a Key.ai lifecycle event into Attio.
 
@@ -221,7 +235,7 @@ def dispatch_keyai_attio_sync(payload: BaseMemberWebhookPayload) -> None:
             payload.eventId,
             str(exc),
         )
-        return
+        return False
 
     logger.info(
         "Attio sync completed: event=%s member_id=%s person_record_id=%s company_record_id=%s lifecycle_entry_id=%s",
@@ -231,9 +245,10 @@ def dispatch_keyai_attio_sync(payload: BaseMemberWebhookPayload) -> None:
         result.company_record_id or "",
         result.lifecycle_entry_id,
     )
+    return True
 
 
-def dispatch_keyai_whatsapp_message(payload: BaseMemberWebhookPayload) -> None:
+def dispatch_keyai_whatsapp_message(payload: BaseMemberWebhookPayload) -> bool:
     """
     Dispatches a Key.ai-triggered WhatsApp template message.
 
@@ -248,7 +263,7 @@ def dispatch_keyai_whatsapp_message(payload: BaseMemberWebhookPayload) -> None:
             payload.event,
             payload.member.id,
         )
-        return
+        return True
 
     try:
         result = send_whatsapp_template_message(send_request)
@@ -259,7 +274,7 @@ def dispatch_keyai_whatsapp_message(payload: BaseMemberWebhookPayload) -> None:
             payload.member.id,
             send_request.template_name,
         )
-        return
+        return False
 
     logger.info(
         "WhatsApp dispatch completed: event=%s member_id=%s template=%s status=%s message_id=%s",
@@ -269,6 +284,7 @@ def dispatch_keyai_whatsapp_message(payload: BaseMemberWebhookPayload) -> None:
         result.status,
         result.message_id,
     )
+    return True
 
 
 def build_new_member_admin_notification_request(
@@ -318,15 +334,13 @@ def build_new_member_admin_member_sentence(
     Returns:
         str: Factual member intro sentence.
     """
-    prompt = NEW_MEMBER_ADMIN_NOTIFICATION_PROMPT_TEMPLATE.format(
+    prompt = NEW_MEMBER_ADMIN_MEMBER_PROMPT_TEMPLATE.format(
         full_name=payload.member.fullName,
         first_name=payload.member.firstName,
         last_name=payload.member.lastName,
-        email=payload.member.email,
-        phone=payload.member.phone,
+        linkedin_url=payload.member.linkedinUrl or "unknown",
         company_name=payload.member.companyName or "unknown",
         company_stage=payload.member.companyStage or "unknown",
-        community_name=payload.community.name,
         occurred_at=payload.occurredAt.isoformat(),
     )
     response = invoke_gemini(
@@ -368,7 +382,7 @@ def build_new_member_admin_company_sentence(
 
     prompt = NEW_MEMBER_ADMIN_COMPANY_PROMPT_TEMPLATE.format(
         company_name=company_name,
-        community_name=payload.community.name,
+        company_stage=payload.member.companyStage or "unknown",
     )
     response = invoke_gemini(
         prompt=prompt,

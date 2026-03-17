@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from funda_app.settings import GeminiClientSettings
+from funda_app.settings import FirestoreClientSettings, GeminiClientSettings
 
 
 class AppSettings(BaseSettings):
@@ -57,6 +57,16 @@ class AppSettings(BaseSettings):
         extra="ignore",
         populate_by_name=True,
     )
+
+    @cached_property
+    def firestore_client_settings(self) -> FirestoreClientSettings:
+        """
+        Returns Firestore client settings with initialized configuration.
+
+        Returns:
+            FirestoreClientSettings: Configured Firestore client settings.
+        """
+        return FirestoreClientSettings()
 
     @cached_property
     def gemini_client_settings(self) -> GeminiClientSettings:

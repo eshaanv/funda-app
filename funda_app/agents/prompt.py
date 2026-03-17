@@ -7,10 +7,12 @@ from the provided context versus what still needs to be verified.
 """.strip()
 
 
-NEW_MEMBER_ADMIN_NOTIFICATION_PROMPT_TEMPLATE = """
-Write one factual sentence introducing an approved Funda community member.
+NEW_MEMBER_ADMIN_MEMBER_PROMPT_TEMPLATE = """
+Write one informative sentence about this person.
 
-Use only the provided inputs. Do not infer facts that are not explicitly present.
+Use the provided inputs and any relevant public web results available to you to
+produce the most informative sentence you can.
+Do not infer facts that are not explicitly present.
 Do not use hype, marketing language, or emojis.
 Return exactly one sentence.
 
@@ -18,24 +20,23 @@ Member details:
 - Full name: {full_name}
 - First name: {first_name}
 - Last name: {last_name}
-- Email: {email}
-- Phone: {phone}
+- LinkedIn URL: {linkedin_url}
 - Company name: {company_name}
 - Company stage: {company_stage}
-- Community: {community_name}
 - Approved at: {occurred_at}
 """.strip()
 
 
 NEW_MEMBER_ADMIN_COMPANY_PROMPT_TEMPLATE = """
-Write one factual sentence about the company associated with an approved Funda
-community member.
+Write one informative sentence about a company.
 
-Use only the provided inputs. Do not infer facts that are not explicitly present.
+Use the provided inputs and any relevant public web results available to you to
+produce the most informative sentence you can.
+Do not infer facts that are not explicitly present.
 Do not use hype, marketing language, or emojis.
 Return exactly one sentence.
 
 Company details:
 - Company name: {company_name}
-- Community: {community_name}
+- Company stage: {company_stage}
 """.strip()
