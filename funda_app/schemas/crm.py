@@ -58,6 +58,7 @@ class AttioCompanySchema(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     object_slug: str = "companies"
+    domains_attribute: str = "domains"
     name_attribute: str = "name"
     stage_attribute: str = "company_stage"
     company_website_attribute: str = "company_website"

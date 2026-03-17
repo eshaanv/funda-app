@@ -9,6 +9,7 @@ uv sync
 export APP_ENV=dev
 export WHATS_APP_TOKEN=your-token
 export WHATSAPP_PHONE_NUMBER_ID=your-phone-number-id
+export NEW_MEMBER_ADMIN_PHONE=15551234567
 export ATTIO_API_KEY_DEV=your-dev-attio-api-key
 export ATTIO_FOUNDER_LIFECYCLE_LIST_ID_DEV=your-dev-attio-list-id
 uv run uvicorn funda_app.main:app --reload

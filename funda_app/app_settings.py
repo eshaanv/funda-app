@@ -18,6 +18,10 @@ class AppSettings(BaseSettings):
     whatsapp_phone_number_id: str = Field(
         validation_alias=AliasChoices("WHATSAPP_PHONE_NUMBER_ID")
     )
+    new_member_admin_phone: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("NEW_MEMBER_ADMIN_PHONE"),
+    )
     whatsapp_api_version: str = "v25.0"
     whatsapp_base_url: str = "https://graph.facebook.com"
     whatsapp_timeout_seconds: float = 10.0

@@ -31,3 +31,4 @@ def normalize_phone_number(raw_value: str | None) -> str | None:
         return f"+{digits}"
 
     return f"+{digits}"
+

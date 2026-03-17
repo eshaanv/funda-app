@@ -1,4 +1,4 @@
-.PHONY: auth _ensure-local-webhook-ready test-local-webhook test-local-webhook-joined test-local-webhook-approved test-local-webhook-rejected test-local-webhook-removed test-local-webhook-left test-dev-webhook test-prod-webhook run-local-container logs-local-container
+.PHONY: auth _ensure-local-webhook-ready test-local-webhook test-local-webhook-joined test-local-webhook-approved test-local-webhook-rejected test-local-webhook-removed test-local-webhook-left test-dev-webhook test-dev-webhook-joined test-dev-webhook-approved test-dev-webhook-rejected test-dev-webhook-removed test-dev-webhook-left test-prod-webhook test-prod-webhook-joined test-prod-webhook-approved test-prod-webhook-rejected test-prod-webhook-removed test-prod-webhook-left run-local-container logs-local-container
 .PHONY: attio-founder-lifecycle-attributes attio-people-attributes attio-company-attributes
 
 APP_ENV ?= dev
@@ -95,8 +95,38 @@ test-local-webhook-left: _ensure-local-webhook-ready
 test-dev-webhook:
 	$(WEBHOOK_PYTEST_DEV)
 
+test-dev-webhook-joined:
+	$(WEBHOOK_PYTEST_DEV) -k "test_member_joined_webhook[dev]"
+
+test-dev-webhook-approved:
+	$(WEBHOOK_PYTEST_DEV) -k "test_member_approved_webhook[dev]"
+
+test-dev-webhook-rejected:
+	$(WEBHOOK_PYTEST_DEV) -k "test_member_rejected_webhook[dev]"
+
+test-dev-webhook-removed:
+	$(WEBHOOK_PYTEST_DEV) -k "test_member_removed_webhook[dev]"
+
+test-dev-webhook-left:
+	$(WEBHOOK_PYTEST_DEV) -k "test_member_left_webhook[dev]"
+
 test-prod-webhook:
 	$(WEBHOOK_PYTEST_PROD)
+
+test-prod-webhook-joined:
+	$(WEBHOOK_PYTEST_PROD) -k "test_member_joined_webhook[prod]"
+
+test-prod-webhook-approved:
+	$(WEBHOOK_PYTEST_PROD) -k "test_member_approved_webhook[prod]"
+
+test-prod-webhook-rejected:
+	$(WEBHOOK_PYTEST_PROD) -k "test_member_rejected_webhook[prod]"
+
+test-prod-webhook-removed:
+	$(WEBHOOK_PYTEST_PROD) -k "test_member_removed_webhook[prod]"
+
+test-prod-webhook-left:
+	$(WEBHOOK_PYTEST_PROD) -k "test_member_left_webhook[prod]"
 
 run-local-container: build-image
 	@if [ ! -f "$(LOCAL_CONTAINER_ENV_FILE)" ]; then \

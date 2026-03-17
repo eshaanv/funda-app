@@ -8,6 +8,7 @@ from funda_app.schemas.crm import (
     AttioSyncResult,
 )
 from funda_app.app_settings import AppSettings, get_app_settings
+from funda_app.utils.domain import normalize_domain
 from funda_app.utils.http import request_json
 
 
@@ -74,6 +75,30 @@ def _validate_attio_settings(settings: AppSettings) -> None:
 
 
 def _sync_company(company: AttioCompanySyncPayload, settings: AppSettings) -> str:
+    domain = normalize_domain(company.company_website)
+    if domain is not None:
+        query = parse.urlencode(
+            {"matching_attribute": ATTIO_SCHEMA.company.domains_attribute}
+        )
+        response = request_json(
+            method="PUT",
+            url=(
+                f"{settings.attio_base_url.rstrip('/')}/objects/"
+                f"{ATTIO_SCHEMA.company.object_slug}/records?{query}"
+            ),
+            payload={
+                "data": {
+                    "values": _build_company_values(
+                        company=company,
+                        domain=domain,
+                    )
+                }
+            },
+            access_token=settings.attio_api_key or "",
+            timeout_seconds=settings.attio_timeout_seconds,
+        )
+        return _extract_record_id(response)
+
     existing_record_id = _find_company_record_id_by_name(
         company_name=company.name,
         settings=settings,
@@ -251,8 +276,11 @@ def _build_person_values(
 
 def _build_company_values(
     company: AttioCompanySyncPayload,
+    domain: str | None = None,
 ) -> dict[str, object]:
     values: dict[str, object] = {ATTIO_SCHEMA.company.name_attribute: company.name}
+    if domain is not None:
+        values[ATTIO_SCHEMA.company.domains_attribute] = [{"domain": domain}]
     if company.stage is not None:
         values[ATTIO_SCHEMA.company.stage_attribute] = company.stage
     if company.company_website is not None:

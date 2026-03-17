@@ -2,7 +2,7 @@ from datetime import datetime, UTC
 
 import pytest
 
-from funda_app.core import normalize_phone_number
+from funda_app.utils import normalize_phone_number
 from funda_app.schemas.crm import (
     AttioCompanySyncPayload,
     AttioLifecycleSyncRequest,
@@ -273,6 +273,68 @@ def test_sync_attio_member_syncs_company_before_person_and_list_entry(
                 }
             },
         },
+    ]
+
+
+def test_sync_attio_member_asserts_company_by_domain_when_company_website_present(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_calls: list[dict[str, object]] = []
+
+    def fake_request_json(
+        method: str,
+        url: str,
+        payload: dict[str, object],
+        access_token: str,
+        timeout_seconds: float,
+    ) -> dict[str, object]:
+        captured_calls.append({"method": method, "url": url, "payload": payload})
+        if "objects/companies/records?" in url:
+            return {"data": {"id": {"record_id": "company-record-999"}}}
+        if "objects/people/records" in url:
+            return {"data": {"id": {"record_id": "person-record-999"}}}
+        return {"data": {"id": {"entry_id": "entry-999"}}}
+
+    monkeypatch.setattr(attio, "request_json", fake_request_json)
+
+    result = attio.sync_attio_member(
+        sync_request=AttioLifecycleSyncRequest(
+            event=MemberWebhookEvent.MEMBER_JOINED,
+            event_id="event-999",
+            occurred_at=datetime(2026, 3, 14, 16, 26, 12, tzinfo=UTC),
+            community_id="community-123",
+            community_name="funda",
+            member_status=MemberStatus.PENDING,
+            person=AttioPersonSyncPayload(
+                keyai_member_id="member-999",
+                email="founder@example.com",
+                full_name="Founder Name",
+                first_name="Founder",
+                last_name="Name",
+            ),
+            company=AttioCompanySyncPayload(
+                name="Wells Fargo",
+                stage="Public Company",
+                company_website="https://www.wellsfargo.com/",
+            ),
+        ),
+        settings=AppSettings(
+            whatsapp_access_token="token",
+            whatsapp_phone_number_id="1029270380269800",
+            attio_api_key_dev="attio-token",
+            attio_founder_lifecycle_list_id_dev="list-123",
+        ),
+    )
+
+    assert result.company_record_id == "company-record-999"
+    company_call = captured_calls[0]
+    assert company_call["method"] == "PUT"
+    assert (
+        company_call["url"]
+        == "https://api.attio.com/v2/objects/companies/records?matching_attribute=domains"
+    )
+    assert company_call["payload"]["data"]["values"]["domains"] == [
+        {"domain": "wellsfargo.com"}
     ]
 
 
