@@ -14,7 +14,7 @@ from funda_app.schemas.whatsapp import (
     WhatsAppTemplateSendRequest,
     whatsapp_template_name_for_event,
 )
-from funda_app.core import normalize_phone_number
+from funda_app.utils import normalize_phone_number
 from funda_app.services.attio import sync_attio_member
 from funda_app.services.keyai_questions import (
     get_company_name,
