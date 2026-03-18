@@ -82,6 +82,7 @@ def _begin_keyai_event_processing(
                 "status": "processing",
                 "attio_done": False,
                 "whatsapp_done": False,
+                "admin_notification_done": False,
                 "updated_at": now,
             },
             merge=True,
@@ -93,6 +94,7 @@ def _begin_keyai_event_processing(
             should_process=False,
             attio_done=record.attio_done,
             whatsapp_done=record.whatsapp_done,
+            admin_notification_done=record.admin_notification_done,
         )
 
     if record.status == "processing":
@@ -100,6 +102,7 @@ def _begin_keyai_event_processing(
             should_process=False,
             attio_done=record.attio_done,
             whatsapp_done=record.whatsapp_done,
+            admin_notification_done=record.admin_notification_done,
         )
 
     transaction.update(
@@ -113,6 +116,7 @@ def _begin_keyai_event_processing(
         should_process=True,
         attio_done=record.attio_done,
         whatsapp_done=record.whatsapp_done,
+        admin_notification_done=record.admin_notification_done,
     )
 
 
@@ -159,8 +163,22 @@ def mark_keyai_event_completed(event_id: str) -> None:
         event_id=event_id,
         data={
             "status": "completed",
-            "attio_done": True,
-            "whatsapp_done": True,
+            "updated_at": datetime.now(UTC),
+        },
+    )
+
+
+def mark_keyai_event_admin_notification_done(event_id: str) -> None:
+    """
+    Marks the approved-member admin notification as completed.
+
+    Args:
+        event_id (str): Unique Key.ai webhook event ID.
+    """
+    _update_keyai_event(
+        event_id=event_id,
+        data={
+            "admin_notification_done": True,
             "updated_at": datetime.now(UTC),
         },
     )

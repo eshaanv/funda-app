@@ -637,6 +637,16 @@ def test_service_processes_member_event_when_claimed(
         "mark_keyai_event_completed",
         lambda event_id: order.append("mark_completed"),
     )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "dispatch_new_member_admin_notification",
+        lambda p: order.append("admin") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_admin_notification_done",
+        lambda event_id: order.append("mark_admin"),
+    )
 
     keyai_webhooks.dispatch_keyai_member_tasks(payload)
 
@@ -645,6 +655,68 @@ def test_service_processes_member_event_when_claimed(
         "mark_attio",
         "whatsapp",
         "mark_whatsapp",
+        "mark_completed",
+    ]
+
+
+def test_service_processes_approved_member_event_with_admin_notification(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    order: list[str] = []
+    payload = MemberApprovedWebhookPayload.model_validate(_build_approved_payload())
+
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "begin_keyai_event_processing",
+        lambda event_id, member_id, event_type: KeyAIEventProcessingState(
+            should_process=True,
+        ),
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "dispatch_keyai_attio_sync",
+        lambda p: order.append("crm") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "dispatch_keyai_whatsapp_message",
+        lambda p: order.append("whatsapp") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "dispatch_new_member_admin_notification",
+        lambda p: order.append("admin") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_attio_done",
+        lambda event_id: order.append("mark_attio"),
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_whatsapp_done",
+        lambda event_id: order.append("mark_whatsapp"),
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_admin_notification_done",
+        lambda event_id: order.append("mark_admin"),
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_completed",
+        lambda event_id: order.append("mark_completed"),
+    )
+
+    keyai_webhooks.dispatch_keyai_member_tasks(payload)
+
+    assert order == [
+        "crm",
+        "mark_attio",
+        "whatsapp",
+        "mark_whatsapp",
+        "admin",
+        "mark_admin",
         "mark_completed",
     ]
 
@@ -689,12 +761,73 @@ def test_service_resumes_member_event_after_attio_completion(
         "mark_keyai_event_completed",
         lambda event_id: order.append("mark_completed"),
     )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "dispatch_new_member_admin_notification",
+        lambda p: order.append("admin") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_admin_notification_done",
+        lambda event_id: order.append("mark_admin"),
+    )
 
     keyai_webhooks.dispatch_keyai_member_tasks(payload)
 
     assert order == [
         "whatsapp",
         "mark_whatsapp",
+        "mark_completed",
+    ]
+
+
+def test_service_resumes_approved_member_event_before_admin_notification(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    order: list[str] = []
+    payload = MemberApprovedWebhookPayload.model_validate(_build_approved_payload())
+
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "begin_keyai_event_processing",
+        lambda event_id, member_id, event_type: KeyAIEventProcessingState(
+            should_process=True,
+            attio_done=True,
+            whatsapp_done=True,
+            admin_notification_done=False,
+        ),
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "dispatch_keyai_attio_sync",
+        lambda p: order.append("crm") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "dispatch_keyai_whatsapp_message",
+        lambda p: order.append("whatsapp") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "dispatch_new_member_admin_notification",
+        lambda p: order.append("admin") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_admin_notification_done",
+        lambda event_id: order.append("mark_admin"),
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_completed",
+        lambda event_id: order.append("mark_completed"),
+    )
+
+    keyai_webhooks.dispatch_keyai_member_tasks(payload)
+
+    assert order == [
+        "admin",
+        "mark_admin",
         "mark_completed",
     ]
 
@@ -731,6 +864,37 @@ def test_service_marks_member_event_failed_on_attio_error(
     keyai_webhooks.dispatch_keyai_member_tasks(payload)
 
     assert order == ["attio_sync_failed"]
+
+
+def test_service_marks_approved_member_event_failed_on_admin_notification_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    order: list[str] = []
+    payload = MemberApprovedWebhookPayload.model_validate(_build_approved_payload())
+
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "begin_keyai_event_processing",
+        lambda event_id, member_id, event_type: KeyAIEventProcessingState(
+            should_process=True,
+            attio_done=True,
+            whatsapp_done=True,
+        ),
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "dispatch_new_member_admin_notification",
+        lambda p: False,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_failed",
+        lambda event_id, error_message: order.append(error_message),
+    )
+
+    keyai_webhooks.dispatch_keyai_member_tasks(payload)
+
+    assert order == ["admin_notification_failed"]
 
 
 def test_joined_webhook_model_requires_questions() -> None:

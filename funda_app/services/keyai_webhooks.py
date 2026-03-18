@@ -30,6 +30,7 @@ from funda_app.services.attio import (
 from funda_app.services.idempotency import (
     begin_keyai_event_processing,
     mark_keyai_event_attio_done,
+    mark_keyai_event_admin_notification_done,
     mark_keyai_event_completed,
     mark_keyai_event_failed,
     mark_keyai_event_whatsapp_done,
@@ -91,9 +92,23 @@ def build_keyai_whatsapp_send_request(
     template_name = whatsapp_template_name_for_event(payload.event)
 
     if template_name is None:
+        logger.info(
+            "Skipping WhatsApp dispatch: no template mapping: event=%s member_id=%s event_id=%s community_id=%s",
+            payload.event,
+            payload.member.id,
+            payload.eventId,
+            payload.community.id,
+        )
         return None
 
     if not payload.member.phone.strip():
+        logger.info(
+            "Skipping WhatsApp dispatch: missing phone: event=%s member_id=%s event_id=%s community_id=%s",
+            payload.event,
+            payload.member.id,
+            payload.eventId,
+            payload.community.id,
+        )
         return None
 
     return WhatsAppTemplateSendRequest(
@@ -170,19 +185,21 @@ def dispatch_keyai_member_tasks(payload: BaseMemberWebhookPayload) -> None:
         )
     except Exception:
         logger.exception(
-            "Key.ai event claim failed: event=%s member_id=%s event_id=%s",
+            "Key.ai event claim failed: event=%s member_id=%s event_id=%s community_id=%s",
             payload.event,
             payload.member.id,
             payload.eventId,
+            payload.community.id,
         )
         return
 
     if not processing_state.should_process:
         logger.info(
-            "Skipping duplicate member event: event=%s member_id=%s event_id=%s",
+            "Skipping duplicate member event: event=%s member_id=%s event_id=%s community_id=%s",
             payload.event,
             payload.member.id,
             payload.eventId,
+            payload.community.id,
         )
         return
 
@@ -205,13 +222,26 @@ def dispatch_keyai_member_tasks(payload: BaseMemberWebhookPayload) -> None:
                 return
             mark_keyai_event_whatsapp_done(payload.eventId)
 
+        if (
+            payload.event == MemberWebhookEvent.MEMBER_APPROVED
+            and not processing_state.admin_notification_done
+        ):
+            if not dispatch_new_member_admin_notification(payload):
+                mark_keyai_event_failed(
+                    event_id=payload.eventId,
+                    error_message="admin_notification_failed",
+                )
+                return
+            mark_keyai_event_admin_notification_done(payload.eventId)
+
         mark_keyai_event_completed(payload.eventId)
     except Exception:
         logger.exception(
-            "Key.ai event progress update failed: event=%s member_id=%s event_id=%s",
+            "Key.ai event progress update failed: event=%s member_id=%s event_id=%s community_id=%s",
             payload.event,
             payload.member.id,
             payload.eventId,
+            payload.community.id,
         )
         return
 
@@ -229,18 +259,21 @@ def dispatch_keyai_attio_sync(payload: BaseMemberWebhookPayload) -> bool:
         result = sync_attio_member(sync_request)
     except Exception as exc:
         logger.exception(
-            "Attio sync failed: event=%s member_id=%s event_id=%s error=%s",
+            "Attio sync failed: event=%s member_id=%s event_id=%s community_id=%s error=%s",
             payload.event,
             payload.member.id,
             payload.eventId,
+            payload.community.id,
             str(exc),
         )
         return False
 
     logger.info(
-        "Attio sync completed: event=%s member_id=%s person_record_id=%s company_record_id=%s lifecycle_entry_id=%s",
+        "Attio sync completed: event=%s member_id=%s event_id=%s community_id=%s person_record_id=%s company_record_id=%s lifecycle_entry_id=%s",
         payload.event,
         payload.member.id,
+        payload.eventId,
+        payload.community.id,
         result.person_record_id,
         result.company_record_id or "",
         result.lifecycle_entry_id,
@@ -258,28 +291,27 @@ def dispatch_keyai_whatsapp_message(payload: BaseMemberWebhookPayload) -> bool:
     send_request = build_keyai_whatsapp_send_request(payload)
 
     if send_request is None:
-        logger.info(
-            "Skipping WhatsApp dispatch: event=%s member_id=%s",
-            payload.event,
-            payload.member.id,
-        )
         return True
 
     try:
         result = send_whatsapp_template_message(send_request)
     except Exception:
         logger.exception(
-            "WhatsApp dispatch failed: event=%s member_id=%s template=%s",
+            "WhatsApp dispatch failed: event=%s member_id=%s event_id=%s community_id=%s template=%s",
             payload.event,
             payload.member.id,
+            payload.eventId,
+            payload.community.id,
             send_request.template_name,
         )
         return False
 
     logger.info(
-        "WhatsApp dispatch completed: event=%s member_id=%s template=%s status=%s message_id=%s",
+        "WhatsApp dispatch completed: event=%s member_id=%s event_id=%s community_id=%s template=%s status=%s message_id=%s",
         payload.event,
         payload.member.id,
+        payload.eventId,
+        payload.community.id,
         send_request.template_name,
         result.status,
         result.message_id,
@@ -309,6 +341,12 @@ def build_new_member_admin_notification_request(
     runtime_settings = settings or get_app_settings()
 
     if not runtime_settings.new_member_admin_phone:
+        logger.info(
+            "Skipping admin notification: missing new_member_admin_phone: member_id=%s event_id=%s community_id=%s",
+            payload.member.id,
+            payload.eventId,
+            payload.community.id,
+        )
         return None
 
     return WhatsAppTemplateSendRequest(
@@ -373,11 +411,19 @@ def build_new_member_admin_company_sentence(
             )
         except Exception:
             logger.exception(
-                "Attio company lookup failed for admin notification: member_id=%s",
+                "Attio company lookup failed for admin notification: member_id=%s event_id=%s community_id=%s",
                 payload.member.id,
+                payload.eventId,
+                payload.community.id,
             )
 
     if not company_name:
+        logger.info(
+            "Admin notification company fallback: company not found: member_id=%s event_id=%s community_id=%s",
+            payload.member.id,
+            payload.eventId,
+            payload.community.id,
+        )
         return "Company not found"
 
     prompt = NEW_MEMBER_ADMIN_COMPANY_PROMPT_TEMPLATE.format(
@@ -390,7 +436,7 @@ def build_new_member_admin_company_sentence(
     return (response or f"{company_name} is the company associated with this member.").strip()
 
 
-def dispatch_new_member_admin_notification(payload: BaseMemberWebhookPayload) -> None:
+def dispatch_new_member_admin_notification(payload: BaseMemberWebhookPayload) -> bool:
     """
     Dispatches an approved-member admin notification.
 
@@ -400,24 +446,29 @@ def dispatch_new_member_admin_notification(payload: BaseMemberWebhookPayload) ->
     send_request = build_new_member_admin_notification_request(payload)
 
     if send_request is None:
-        return
+        return True
 
     try:
         result = send_whatsapp_template_message(send_request)
     except Exception:
         logger.exception(
-            "Admin notification failed: event=%s member_id=%s template=%s",
+            "Admin notification failed: event=%s member_id=%s event_id=%s community_id=%s template=%s",
             payload.event,
             payload.member.id,
+            payload.eventId,
+            payload.community.id,
             send_request.template_name,
         )
-        return
+        return False
 
     logger.info(
-        "Admin notification completed: event=%s member_id=%s template=%s status=%s message_id=%s",
+        "Admin notification completed: event=%s member_id=%s event_id=%s community_id=%s template=%s status=%s message_id=%s",
         payload.event,
         payload.member.id,
+        payload.eventId,
+        payload.community.id,
         send_request.template_name,
         result.status,
         result.message_id,
     )
+    return True

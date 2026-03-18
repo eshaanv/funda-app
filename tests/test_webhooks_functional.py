@@ -127,6 +127,18 @@ def _build_joined_payload(event_id: str) -> dict[str, object]:
     }
 
 
+def _build_approved_payload(event_id: str) -> dict[str, object]:
+    return {
+        "event": "member.approved",
+        "member": _common_member(),
+        "status": {"old": "PENDING", "new": "APPROVED"},
+        "eventId": event_id,
+        "version": 1,
+        "community": _common_community(),
+        "occurredAt": "2026-03-13T15:06:00.000Z",
+    }
+
+
 def _should_skip_target(target: str) -> tuple[bool, str]:
     """Returns (skip, reason). Skip when opt-in missing, target filtered, or URL not set."""
     if not _webhook_test_enabled():
@@ -181,6 +193,31 @@ def _wait_for_firestore_event_document(
     )
 
 
+def _wait_for_firestore_event_fields(
+    target: str,
+    event_id: str,
+    expected_fields: dict[str, object],
+    timeout_seconds: float = 20.0,
+) -> dict[str, object]:
+    """Polls Firestore until the event document contains the expected field values."""
+    deadline = time.time() + timeout_seconds
+
+    while time.time() < deadline:
+        document = _wait_for_firestore_event_document(
+            target=target,
+            event_id=event_id,
+            timeout_seconds=2.0,
+        )
+        if all(document.get(key) == value for key, value in expected_fields.items()):
+            return document
+        time.sleep(0.5)
+
+    pytest.fail(
+        f"Timed out waiting for Firestore document {KEYAI_WEBHOOK_COLLECTION}/{event_id} "
+        f"to match {expected_fields!r}"
+    )
+
+
 def _delete_firestore_event_document(target: str, event_id: str) -> None:
     """Deletes a Firestore idempotency document when present."""
     project_id = _firestore_project_id_for_target(target)
@@ -222,15 +259,7 @@ def test_member_approved_webhook(target: str) -> None:
     if skip:
         pytest.skip(reason)
     base_url = _base_url_for_target(target)
-    payload = {
-        "event": "member.approved",
-        "member": _common_member(),
-        "status": {"old": "PENDING", "new": "APPROVED"},
-        "eventId": "18964b2f-d41e-4ae4-aa9f-bfb87b48c94f",
-        "version": 1,
-        "community": _common_community(),
-        "occurredAt": "2026-03-13T15:06:00.000Z",
-    }
+    payload = _build_approved_payload("18964b2f-d41e-4ae4-aa9f-bfb87b48c94f")
     response = _post_webhook(payload, base_url)
     assert response.status_code == 202
     assert response.json() == {
@@ -356,3 +385,40 @@ def test_member_joined_webhook_dedupes_concurrent_duplicate_event_ids(
     assert document["member_id"] == "14b8d602-1eee-11f1-b904-0242ac14000a"
     assert document["event_type"] == "member.joined"
     assert document["status"] in {"processing", "completed", "failed"}
+
+
+@pytest.mark.parametrize("target", WEBHOOK_TARGETS)
+@pytest.mark.skipif(
+    not _webhook_test_enabled(),
+    reason="Set RUN_LOCAL_WEBHOOK_TESTS=1 or WEBHOOK_TEST_TARGET=local|dev|prod to run.",
+)
+def test_member_approved_webhook_completes_admin_notification(
+    target: str,
+) -> None:
+    skip, reason = _should_skip_firestore_target(target)
+    if skip:
+        pytest.skip(reason)
+
+    base_url = _base_url_for_target(target)
+    event_id = str(uuid4())
+    payload = _build_approved_payload(event_id)
+
+    _delete_firestore_event_document(target=target, event_id=event_id)
+
+    response = _post_webhook(payload, base_url)
+
+    assert response.status_code == 202
+
+    document = _wait_for_firestore_event_fields(
+        target=target,
+        event_id=event_id,
+        expected_fields={
+            "event_id": event_id,
+            "event_type": "member.approved",
+            "attio_done": True,
+            "whatsapp_done": True,
+            "admin_notification_done": True,
+            "status": "completed",
+        },
+    )
+    assert document["member_id"] == "14b8d602-1eee-11f1-b904-0242ac14000a"
