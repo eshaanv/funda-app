@@ -22,6 +22,7 @@ from funda_app.schemas.whatsapp import (
     whatsapp_template_name_for_event,
 )
 from funda_app.app_settings import AppSettings, get_app_settings
+from funda_app.core import sanitize_whatsapp_text
 from funda_app.utils import normalize_phone_number
 from funda_app.services.attio import (
     get_linked_company_name_for_member,
@@ -384,7 +385,10 @@ def build_new_member_admin_member_sentence(
     response = invoke_gemini(
         prompt=prompt,
     )
-    return (response or f"{payload.member.fullName} is an approved member of the Funda community.").strip()
+    return sanitize_whatsapp_text(
+        response
+        or f"{payload.member.fullName} is an approved member of the Funda community."
+    )
 
 
 def build_new_member_admin_company_sentence(
@@ -433,7 +437,9 @@ def build_new_member_admin_company_sentence(
     response = invoke_gemini(
         prompt=prompt,
     )
-    return (response or f"{company_name} is the company associated with this member.").strip()
+    return sanitize_whatsapp_text(
+        response or f"{company_name} is the company associated with this member."
+    )
 
 
 def dispatch_new_member_admin_notification(payload: BaseMemberWebhookPayload) -> bool:

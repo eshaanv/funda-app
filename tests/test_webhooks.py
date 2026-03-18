@@ -245,8 +245,8 @@ def test_service_builds_joined_whatsapp_request() -> None:
 def test_service_builds_approved_admin_notification_request() -> None:
     def fake_invoke_gemini(prompt, config=None):
         if "Company details:" in prompt:
-            return "Acme AI is the company associated with this member."
-        return "Rohan is an approved member of the Funda community."
+            return "Acme AI is the company associated\nwith this member."
+        return "Rohan is an approved\tmember of the Funda community."
 
     keyai_webhooks.invoke_gemini = fake_invoke_gemini
     keyai_webhooks.get_linked_company_name_for_member = (
@@ -475,8 +475,8 @@ def test_admin_notification_sentences_are_printed(
 
     def fake_invoke_gemini(prompt: str, config=None) -> str:
         if "Member details" in prompt:
-            return "Member sentence generated for testing."
-        return "Company sentence generated for testing."
+            return "Member sentence\n generated\t for testing."
+        return "Company sentence\r\n generated for testing."
 
     monkeypatch.setattr(
         keyai_webhooks,
