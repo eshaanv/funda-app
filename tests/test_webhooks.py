@@ -244,9 +244,10 @@ def test_service_builds_joined_whatsapp_request() -> None:
 
 def test_service_builds_approved_admin_notification_request() -> None:
     def fake_invoke_gemini(prompt, config=None):
-        if "Company details:" in prompt:
-            return "Acme AI is the company associated\nwith this member."
-        return "Rohan is an approved\tmember of the Funda community."
+        return (
+            '{"individual_blurb":"Rohan is an approved\\tmember of the Funda community.",'
+            '"company_blurb":"Acme AI is the company associated\\nwith this member."}'
+        )
 
     keyai_webhooks.invoke_gemini = fake_invoke_gemini
     keyai_webhooks.get_linked_company_name_for_member = (
@@ -429,9 +430,10 @@ def test_service_dispatches_approved_event_to_admin_notification(
     monkeypatch.setattr(keyai_webhooks, "send_whatsapp_template_message", fake_sender)
 
     def fake_invoke_gemini(prompt, config=None):
-        if "Company details:" in prompt:
-            return "Acme AI is the company associated with this member."
-        return "Rohan is an approved member of the Funda community."
+        return (
+            '{"individual_blurb":"Rohan is an approved member of the Funda community.",'
+            '"company_blurb":"Acme AI is the company associated with this member."}'
+        )
 
     monkeypatch.setattr(
         keyai_webhooks,
@@ -474,9 +476,10 @@ def test_admin_notification_sentences_are_printed(
     payload = MemberApprovedWebhookPayload.model_validate(_build_approved_payload())
 
     def fake_invoke_gemini(prompt: str, config=None) -> str:
-        if "Member details" in prompt:
-            return "Member sentence\n generated\t for testing."
-        return "Company sentence\r\n generated for testing."
+        return (
+            '{"individual_blurb":"Member sentence\\n generated\\t for testing.",'
+            '"company_blurb":"Company sentence\\r\\n generated for testing."}'
+        )
 
     monkeypatch.setattr(
         keyai_webhooks,
@@ -529,7 +532,11 @@ def test_service_builds_company_sentence_with_gemini(
     monkeypatch.setattr(
         keyai_webhooks,
         "invoke_gemini",
-        lambda prompt, config=None: "Acme AI builds software for finance teams.",
+        lambda prompt, config=None: (
+            '{"individual_blurb":"Founder works at Acme AI.",'
+            '"company_blurb":"Acme AI builds software for finance teams.",'
+            '"citations":["https://acme.ai/"]}'
+        ),
     )
 
     sentence = keyai_webhooks.build_new_member_admin_company_sentence(
@@ -537,6 +544,31 @@ def test_service_builds_company_sentence_with_gemini(
     )
 
     assert sentence == "Acme AI builds software for finance teams."
+
+
+def test_service_builds_admin_notification_blurbs_with_json_gemini_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "invoke_gemini",
+        lambda prompt, config=None: (
+            '{"individual_blurb":"Eshaan\\nworks at Wells Fargo.",'
+            '"company_blurb":"Wells Fargo\\t is a fairly solid public company.",'
+            '"citations":["https://www.wellsfargo.com/"]}'
+        ),
+    )
+
+    blurbs = keyai_webhooks.build_new_member_admin_blurbs(
+        payload=MemberApprovedWebhookPayload.model_validate(_build_approved_payload()),
+    )
+
+    print("\ncitations:")
+    print(blurbs.citations)
+
+    assert blurbs.individual_blurb == "Eshaan works at Wells Fargo."
+    assert blurbs.company_blurb == "Wells Fargo is a fairly solid public company."
+    assert blurbs.citations == ["https://www.wellsfargo.com/"]
 
 
 def test_service_dispatches_member_event_to_attio(

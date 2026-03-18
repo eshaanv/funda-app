@@ -20,14 +20,14 @@ def test_live_new_member_admin_sentence_generation() -> None:
             "event": "member.approved",
             "member": {
                 "id": "user-456",
-                "email": "eshaanvipani1@gmail.com",
+                "email": "dakshata@example.com",
                 "phone": "8511152215",
-                "fullName": "Eshaan Vipani",
-                "lastName": "Vipani",
-                "firstName": "Eshaan",
-                "companyName": "Wells Fargo",
-                "linkedinUrl": "https://www.linkedin.com/in/eshaan-vipani/",
-                "companyStage": "Public Company",
+                "fullName": "Dakshata Anand",
+                "lastName": "Anand",
+                "firstName": "Dakshata",
+                "companyName": "Ontra",
+                "linkedinUrl": "https://www.linkedin.com/in/dakshata-anand/",
+                "companyStage": "Series B",
             },
             "status": {
                 "new": "APPROVED",
@@ -40,6 +40,20 @@ def test_live_new_member_admin_sentence_generation() -> None:
                 "name": "funda",
             },
             "occurredAt": "2026-03-13T15:05:32.436Z",
+            "questions": [
+                {
+                    "question": "What is your current job title?",
+                    "answer": "Business Development Associate - Investment Banking",
+                },
+                {
+                    "question": "What is your company website domain?",
+                    "answer": "https://www.ontra.ai/",
+                },
+                {
+                    "question": "What is your company's funding stage?",
+                    "answer": "Series B",
+                },
+            ],
         }
     )
 
@@ -53,6 +67,12 @@ def test_live_new_member_admin_sentence_generation() -> None:
 
     assert member_sentence
     assert company_sentence
-    assert member_sentence != "Eshaan Vipani is an approved member of the Funda community."
-    assert company_sentence != "Wells Fargo is the company associated with this member."
+    assert "\n" not in member_sentence
+    assert "\n" not in company_sentence
+    assert len(member_sentence) <= 180
+    assert len(company_sentence) <= 140
+    assert "Ontra" in member_sentence
+    assert "Ontra" in company_sentence
+    assert member_sentence != "Dakshata Anand is an approved member of the Funda community."
+    assert company_sentence != "Ontra is the company associated with this member."
     assert company_sentence != "Company not found"

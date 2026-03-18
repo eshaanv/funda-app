@@ -1,10 +1,12 @@
 import logging
 
+from google.genai.types import GenerateContentConfig
+
 from funda_app.agents.models import invoke_gemini
 from funda_app.agents.prompt import (
-    NEW_MEMBER_ADMIN_COMPANY_PROMPT_TEMPLATE,
-    NEW_MEMBER_ADMIN_MEMBER_PROMPT_TEMPLATE,
+    NEW_MEMBER_ADMIN_BLURBS_PROMPT_TEMPLATE,
 )
+from funda_app.schemas.admin_notification import AdminNotificationBlurbs
 from funda_app.schemas.crm import (
     AttioCompanySyncPayload,
     AttioLifecycleSyncRequest,
@@ -350,53 +352,25 @@ def build_new_member_admin_notification_request(
         )
         return None
 
+    blurbs = build_new_member_admin_blurbs(payload)
+
     return WhatsAppTemplateSendRequest(
         to=runtime_settings.new_member_admin_phone,
         template_name=WhatsAppTemplateName.FUNDA_NEW_MEMBER_ADMIN_NOTIFICATION,
         template_metadata={
             "full_name": payload.member.fullName,
-            "member_sentence": build_new_member_admin_member_sentence(payload),
-            "company_sentence": build_new_member_admin_company_sentence(payload),
+            "member_sentence": blurbs.individual_blurb,
+            "company_sentence": blurbs.company_blurb,
         },
     )
 
 
-def build_new_member_admin_member_sentence(
-    payload: BaseMemberWebhookPayload,
-) -> str:
-    """
-    Builds the factual member intro sentence for the admin notification.
-
-    Args:
-        payload (BaseMemberWebhookPayload): Approved Key.ai webhook payload.
-
-    Returns:
-        str: Factual member intro sentence.
-    """
-    prompt = NEW_MEMBER_ADMIN_MEMBER_PROMPT_TEMPLATE.format(
-        full_name=payload.member.fullName,
-        first_name=payload.member.firstName,
-        last_name=payload.member.lastName,
-        linkedin_url=payload.member.linkedinUrl or "unknown",
-        company_name=payload.member.companyName or "unknown",
-        company_stage=payload.member.companyStage or "unknown",
-        occurred_at=payload.occurredAt.isoformat(),
-    )
-    response = invoke_gemini(
-        prompt=prompt,
-    )
-    return sanitize_whatsapp_text(
-        response
-        or f"{payload.member.fullName} is an approved member of the Funda community."
-    )
-
-
-def build_new_member_admin_company_sentence(
+def build_new_member_admin_blurbs(
     payload: BaseMemberWebhookPayload,
     settings: AppSettings | None = None,
-) -> str:
+) -> AdminNotificationBlurbs:
     """
-    Builds the factual company sentence for the admin notification.
+    Builds the member and company blurbs for the admin notification.
 
     Args:
         payload (BaseMemberWebhookPayload): Approved Key.ai webhook payload.
@@ -404,7 +378,7 @@ def build_new_member_admin_company_sentence(
             Defaults to None.
 
     Returns:
-        str: Factual company sentence or fixed fallback text.
+        AdminNotificationBlurbs: Structured admin notification blurbs.
     """
     company_name = payload.member.companyName
     if not company_name:
@@ -422,24 +396,101 @@ def build_new_member_admin_company_sentence(
             )
 
     if not company_name:
-        logger.info(
-            "Admin notification company fallback: company not found: member_id=%s event_id=%s community_id=%s",
-            payload.member.id,
-            payload.eventId,
-            payload.community.id,
+        return AdminNotificationBlurbs(
+            individual_blurb=sanitize_whatsapp_text(
+                f"{payload.member.fullName} is an approved member of the Funda community."
+            ),
+            company_blurb="Company not found",
         )
-        return "Company not found"
 
-    prompt = NEW_MEMBER_ADMIN_COMPANY_PROMPT_TEMPLATE.format(
+    prompt = NEW_MEMBER_ADMIN_BLURBS_PROMPT_TEMPLATE.format(
+        full_name=payload.member.fullName,
+        first_name=payload.member.firstName,
+        last_name=payload.member.lastName,
+        linkedin_url=payload.member.linkedinUrl or "unknown",
         company_name=company_name,
         company_stage=payload.member.companyStage or "unknown",
+        company_website=get_company_website_domain(payload.questions) or "unknown",
+        occurred_at=payload.occurredAt.isoformat(),
+        company_description="unknown",
+        role=get_job_title(payload.questions) or "unknown",
     )
     response = invoke_gemini(
         prompt=prompt,
+        config=GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=AdminNotificationBlurbs.model_json_schema(),
+        ),
     )
-    return sanitize_whatsapp_text(
-        response or f"{company_name} is the company associated with this member."
+
+    if response is None:
+        return AdminNotificationBlurbs(
+            individual_blurb=sanitize_whatsapp_text(
+                f"{payload.member.fullName} works at {company_name}."
+            ),
+            company_blurb=sanitize_whatsapp_text(
+                f"{company_name} is the company associated with this member."
+            ),
+        )
+
+    try:
+        blurbs = AdminNotificationBlurbs.model_validate_json(response)
+    except Exception:
+        logger.warning(
+            "Admin notification blurbs response was not valid JSON: event=%s member_id=%s event_id=%s",
+            payload.event,
+            payload.member.id,
+            payload.eventId,
+        )
+        return AdminNotificationBlurbs(
+            individual_blurb=sanitize_whatsapp_text(
+                f"{payload.member.fullName} works at {company_name}."
+            ),
+            company_blurb=sanitize_whatsapp_text(
+                f"{company_name} is the company associated with this member."
+            ),
+        )
+
+    return AdminNotificationBlurbs(
+        individual_blurb=sanitize_whatsapp_text(blurbs.individual_blurb),
+        company_blurb=sanitize_whatsapp_text(blurbs.company_blurb),
     )
+
+
+def build_new_member_admin_member_sentence(
+    payload: BaseMemberWebhookPayload,
+) -> str:
+    """
+    Builds the factual member intro sentence for the admin notification.
+
+    Args:
+        payload (BaseMemberWebhookPayload): Approved Key.ai webhook payload.
+
+    Returns:
+        str: Factual member intro sentence.
+    """
+    return build_new_member_admin_blurbs(payload).individual_blurb
+
+
+def build_new_member_admin_company_sentence(
+    payload: BaseMemberWebhookPayload,
+    settings: AppSettings | None = None,
+) -> str:
+    """
+    Builds the factual company sentence for the admin notification.
+
+    Args:
+        payload (BaseMemberWebhookPayload): Approved Key.ai webhook payload.
+        settings (AppSettings | None, optional): Runtime settings override.
+            Defaults to None.
+
+    Returns:
+        str: Factual company sentence or fixed fallback text.
+    """
+    return build_new_member_admin_blurbs(
+        payload=payload,
+        settings=settings,
+    ).company_blurb
 
 
 def dispatch_new_member_admin_notification(payload: BaseMemberWebhookPayload) -> bool:

@@ -18,7 +18,7 @@ class GeminiModels(StrEnum):
 
 def invoke_gemini(
     prompt: str,
-    model: GeminiModels = GeminiModels.GEMINI_FLASH_LATEST,
+    model: GeminiModels = GeminiModels.GEMINI_3_PRO_PREVIEW,
     config: GenerateContentConfig | None = None,
     max_retries: int = 3,
     initial_delay: float = 1.0,
