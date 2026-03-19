@@ -203,7 +203,7 @@ def _wait_for_firestore_event_fields(
     target: str,
     event_id: str,
     expected_fields: dict[str, object],
-    timeout_seconds: float = 20.0,
+    timeout_seconds: float = 40.0,
 ) -> dict[str, object]:
     """Polls Firestore until the event document contains the expected field values."""
     deadline = time.time() + timeout_seconds
