@@ -380,20 +380,19 @@ def build_new_member_admin_blurbs(
     Returns:
         AdminNotificationBlurbs: Structured admin notification blurbs.
     """
-    company_name = payload.member.companyName
-    if not company_name:
-        try:
-            company_name = get_linked_company_name_for_member(
-                member_id=payload.member.id,
-                settings=settings,
-            )
-        except Exception:
-            logger.exception(
-                "Attio company lookup failed for admin notification: member_id=%s event_id=%s community_id=%s",
-                payload.member.id,
-                payload.eventId,
-                payload.community.id,
-            )
+    company_name = None
+    try:
+        company_name = get_linked_company_name_for_member(
+            member_id=payload.member.id,
+            settings=settings,
+        )
+    except Exception:
+        logger.exception(
+            "Attio company lookup failed for admin notification: member_id=%s event_id=%s community_id=%s",
+            payload.member.id,
+            payload.eventId,
+            payload.community.id,
+        )
 
     if not company_name:
         return AdminNotificationBlurbs(
@@ -454,6 +453,7 @@ def build_new_member_admin_blurbs(
     return AdminNotificationBlurbs(
         individual_blurb=sanitize_whatsapp_text(blurbs.individual_blurb),
         company_blurb=sanitize_whatsapp_text(blurbs.company_blurb),
+        citations=blurbs.citations,
     )
 
 

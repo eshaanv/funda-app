@@ -1,4 +1,5 @@
 import os
+from uuid import uuid4
 
 import pytest
 
@@ -19,41 +20,24 @@ def test_live_new_member_admin_sentence_generation() -> None:
         {
             "event": "member.approved",
             "member": {
-                "id": "user-456",
-                "email": "dakshata@example.com",
-                "phone": "8511152215",
-                "fullName": "Dakshata Anand",
-                "lastName": "Anand",
-                "firstName": "Dakshata",
-                "companyName": "Ontra",
-                "linkedinUrl": "https://www.linkedin.com/in/dakshata-anand/",
-                "companyStage": "Series B",
+                "id": "14b8d602-1eee-11f1-b904-0242ac14000a",
+                "email": "eshaanvipani1@gmail.com",
+                "phone": "9256400611",
+                "fullName": "Eshaan Vipani",
+                "lastName": "Vipani",
+                "firstName": "Eshaan",
             },
             "status": {
                 "new": "APPROVED",
                 "old": "PENDING",
             },
-            "eventId": "08964b2f-d41e-4ae4-aa9f-bfb87b48c94f",
+            "eventId": str(uuid4()),
             "version": 1,
             "community": {
                 "id": "b382558c-1ebd-11f1-b36c-0242ac14000a",
                 "name": "funda",
             },
             "occurredAt": "2026-03-13T15:05:32.436Z",
-            "questions": [
-                {
-                    "question": "What is your current job title?",
-                    "answer": "Business Development Associate - Investment Banking",
-                },
-                {
-                    "question": "What is your company website domain?",
-                    "answer": "https://www.ontra.ai/",
-                },
-                {
-                    "question": "What is your company's funding stage?",
-                    "answer": "Series B",
-                },
-            ],
         }
     )
 
@@ -71,8 +55,7 @@ def test_live_new_member_admin_sentence_generation() -> None:
     assert "\n" not in company_sentence
     assert len(member_sentence) <= 180
     assert len(company_sentence) <= 140
-    assert "Ontra" in member_sentence
-    assert "Ontra" in company_sentence
-    assert member_sentence != "Dakshata Anand is an approved member of the Funda community."
-    assert company_sentence != "Ontra is the company associated with this member."
+    assert "Wells Fargo" in company_sentence
+    assert member_sentence != "Eshaan Vipani is an approved member of the Funda community."
+    assert company_sentence != "Wells Fargo is the company associated with this member."
     assert company_sentence != "Company not found"

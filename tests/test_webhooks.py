@@ -1,6 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
+from uuid import uuid4
 
 from funda_app.api import webhooks as webhooks_api
 from funda_app.schemas.idempotency import KeyAIEventProcessingState
@@ -34,7 +35,7 @@ def _build_joined_payload() -> dict[str, object]:
             "new": "PENDING",
             "old": None,
         },
-        "eventId": "08964b2f-d41e-4ae4-aa9f-bfb87b48c94f",
+        "eventId": str(uuid4()),
         "version": 1,
         "community": {
             "id": "b382558c-1ebd-11f1-b36c-0242ac14000a",
@@ -80,7 +81,7 @@ def _build_approved_payload() -> dict[str, object]:
             "new": "APPROVED",
             "old": "PENDING",
         },
-        "eventId": "08964b2f-d41e-4ae4-aa9f-bfb87b48c94f",
+        "eventId": str(uuid4()),
         "version": 1,
         "community": {
             "id": "b382558c-1ebd-11f1-b36c-0242ac14000a",

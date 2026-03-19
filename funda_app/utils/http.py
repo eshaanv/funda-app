@@ -38,7 +38,9 @@ def request_json(
         urllib.error.HTTPError: When the server returns a non-2xx status.
         urllib.error.URLError: When the request cannot be completed.
     """
-    request_body = json.dumps(payload).encode("utf-8")
+    request_body = None
+    if method.upper() != "GET":
+        request_body = json.dumps(payload).encode("utf-8")
     http_request = request.Request(
         url=url,
         data=request_body,

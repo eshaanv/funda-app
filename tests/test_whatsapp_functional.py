@@ -1,4 +1,5 @@
 import os
+from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
@@ -54,7 +55,7 @@ def test_member_joined_live_whatsapp_dispatch() -> None:
                 "new": "PENDING",
                 "old": None,
             },
-            "eventId": "08964b2f-d41e-4ae4-aa9f-bfb87b48c94f",
+            "eventId": str(uuid4()),
             "version": 1,
             "community": {
                 "id": "b382558c-1ebd-11f1-b36c-0242ac14000a",
