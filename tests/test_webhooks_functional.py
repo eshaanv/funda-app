@@ -239,7 +239,7 @@ def test_member_joined_webhook(target: str) -> None:
     if skip:
         pytest.skip(reason)
     base_url = _base_url_for_target(target)
-    payload = _build_joined_payload("08964b2f-d41e-4ae4-aa9f-bfb87b48c94f")
+    payload = _build_joined_payload(str(uuid4()))
     response = _post_webhook(payload, base_url)
     assert response.status_code == 202
     assert response.json() == {
@@ -259,7 +259,7 @@ def test_member_approved_webhook(target: str) -> None:
     if skip:
         pytest.skip(reason)
     base_url = _base_url_for_target(target)
-    payload = _build_approved_payload("18964b2f-d41e-4ae4-aa9f-bfb87b48c94f")
+    payload = _build_approved_payload(str(uuid4()))
     response = _post_webhook(payload, base_url)
     assert response.status_code == 202
     assert response.json() == {
@@ -283,7 +283,7 @@ def test_member_rejected_webhook(target: str) -> None:
         "event": "member.rejected",
         "member": _common_member(),
         "status": {"old": "PENDING", "new": "REJECTED"},
-        "eventId": "28964b2f-d41e-4ae4-aa9f-bfb87b48c94f",
+        "eventId": str(uuid4()),
         "version": 1,
         "community": _common_community(),
         "occurredAt": "2026-03-13T15:07:00.000Z",
@@ -311,7 +311,7 @@ def test_member_removed_webhook(target: str) -> None:
         "event": "member.removed",
         "member": _common_member(),
         "status": {"old": "APPROVED", "new": "REMOVED"},
-        "eventId": "38964b2f-d41e-4ae4-aa9f-bfb87b48c94f",
+        "eventId": str(uuid4()),
         "version": 1,
         "community": _common_community(),
         "occurredAt": "2026-03-13T15:08:00.000Z",
@@ -339,7 +339,7 @@ def test_member_left_webhook(target: str) -> None:
         "event": "member.left",
         "member": _common_member(),
         "status": {"old": "APPROVED", "new": "LEFT"},
-        "eventId": "48964b2f-d41e-4ae4-aa9f-bfb87b48c94f",
+        "eventId": str(uuid4()),
         "version": 1,
         "community": _common_community(),
         "occurredAt": "2026-03-13T15:09:00.000Z",

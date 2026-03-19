@@ -1,4 +1,5 @@
 import os
+from uuid import uuid4
 
 import pytest
 
@@ -33,7 +34,7 @@ def test_live_new_member_admin_sentence_generation() -> None:
                 "new": "APPROVED",
                 "old": "PENDING",
             },
-            "eventId": "08964b2f-d41e-4ae4-aa9f-bfb87b48c94f",
+            "eventId": str(uuid4()),
             "version": 1,
             "community": {
                 "id": "b382558c-1ebd-11f1-b36c-0242ac14000a",

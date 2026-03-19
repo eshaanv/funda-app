@@ -1,4 +1,5 @@
 import pytest
+from uuid import uuid4
 
 from funda_app.schemas.webhooks import MemberJoinedWebhookPayload
 from funda_app.services import keyai_webhooks
@@ -22,7 +23,7 @@ def _build_joined_payload() -> dict[str, object]:
             "new": "PENDING",
             "old": None,
         },
-        "eventId": "08964b2f-d41e-4ae4-aa9f-bfb87b48c94f",
+        "eventId": str(uuid4()),
         "version": 1,
         "community": {
             "id": "b382558c-1ebd-11f1-b36c-0242ac14000a",

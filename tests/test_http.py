@@ -80,3 +80,33 @@ def test_request_json_retries_retryable_http_error(
     assert response == {"data": {"id": {"entry_id": "entry-123"}}}
     assert len(open_calls) == 2
     assert sleep_calls == [1.0]
+
+
+def test_request_json_does_not_send_body_for_get(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_request = {}
+
+    def fake_urlopen(http_request, timeout: float):
+        captured_request["method"] = http_request.get_method()
+        captured_request["data"] = http_request.data
+        captured_request["content_type"] = http_request.headers.get("Content-type")
+        return FakeResponse('{"data": {"id": {"record_id": "company-record-123"}}}')
+
+    monkeypatch.setattr(http.request, "urlopen", fake_urlopen)
+
+    response = http.request_json(
+        method="GET",
+        url="https://api.attio.com/v2/objects/companies/records/company-record-123",
+        payload={},
+        access_token="attio-token",
+        timeout_seconds=20.0,
+        retry_attempts=3,
+    )
+
+    assert response == {"data": {"id": {"record_id": "company-record-123"}}}
+    assert captured_request == {
+        "method": "GET",
+        "data": None,
+        "content_type": "application/json",
+    }
