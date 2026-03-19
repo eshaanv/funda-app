@@ -31,6 +31,10 @@ async def post_keyai_webhook(
         payload.eventId,
         payload.community.id,
     )
+    logger.debug(
+        "Received Key.ai webhook payload: %s",
+        payload.model_dump_json(),
+    )
     background_tasks.add_task(
         webhook_service.dispatch_keyai_member_tasks,
         payload,
