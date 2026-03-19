@@ -244,9 +244,10 @@ def test_service_builds_joined_whatsapp_request() -> None:
 
 def test_service_builds_approved_admin_notification_request() -> None:
     def fake_invoke_gemini(prompt, config=None):
-        if "Company details:" in prompt:
-            return "Acme AI is the company associated with this member."
-        return "Rohan is an approved member of the Funda community."
+        return (
+            '{"individual_blurb":"Rohan is an approved\\tmember of the Funda community.",'
+            '"company_blurb":"Acme AI is the company associated\\nwith this member."}'
+        )
 
     keyai_webhooks.invoke_gemini = fake_invoke_gemini
     keyai_webhooks.get_linked_company_name_for_member = (
@@ -429,9 +430,10 @@ def test_service_dispatches_approved_event_to_admin_notification(
     monkeypatch.setattr(keyai_webhooks, "send_whatsapp_template_message", fake_sender)
 
     def fake_invoke_gemini(prompt, config=None):
-        if "Company details:" in prompt:
-            return "Acme AI is the company associated with this member."
-        return "Rohan is an approved member of the Funda community."
+        return (
+            '{"individual_blurb":"Rohan is an approved member of the Funda community.",'
+            '"company_blurb":"Acme AI is the company associated with this member."}'
+        )
 
     monkeypatch.setattr(
         keyai_webhooks,
@@ -474,9 +476,10 @@ def test_admin_notification_sentences_are_printed(
     payload = MemberApprovedWebhookPayload.model_validate(_build_approved_payload())
 
     def fake_invoke_gemini(prompt: str, config=None) -> str:
-        if "Member details" in prompt:
-            return "Member sentence generated for testing."
-        return "Company sentence generated for testing."
+        return (
+            '{"individual_blurb":"Member sentence\\n generated\\t for testing.",'
+            '"company_blurb":"Company sentence\\r\\n generated for testing."}'
+        )
 
     monkeypatch.setattr(
         keyai_webhooks,
@@ -529,7 +532,11 @@ def test_service_builds_company_sentence_with_gemini(
     monkeypatch.setattr(
         keyai_webhooks,
         "invoke_gemini",
-        lambda prompt, config=None: "Acme AI builds software for finance teams.",
+        lambda prompt, config=None: (
+            '{"individual_blurb":"Founder works at Acme AI.",'
+            '"company_blurb":"Acme AI builds software for finance teams.",'
+            '"citations":["https://acme.ai/"]}'
+        ),
     )
 
     sentence = keyai_webhooks.build_new_member_admin_company_sentence(
@@ -537,6 +544,31 @@ def test_service_builds_company_sentence_with_gemini(
     )
 
     assert sentence == "Acme AI builds software for finance teams."
+
+
+def test_service_builds_admin_notification_blurbs_with_json_gemini_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "invoke_gemini",
+        lambda prompt, config=None: (
+            '{"individual_blurb":"Eshaan\\nworks at Wells Fargo.",'
+            '"company_blurb":"Wells Fargo\\t is a fairly solid public company.",'
+            '"citations":["https://www.wellsfargo.com/"]}'
+        ),
+    )
+
+    blurbs = keyai_webhooks.build_new_member_admin_blurbs(
+        payload=MemberApprovedWebhookPayload.model_validate(_build_approved_payload()),
+    )
+
+    print("\ncitations:")
+    print(blurbs.citations)
+
+    assert blurbs.individual_blurb == "Eshaan works at Wells Fargo."
+    assert blurbs.company_blurb == "Wells Fargo is a fairly solid public company."
+    assert blurbs.citations == ["https://www.wellsfargo.com/"]
 
 
 def test_service_dispatches_member_event_to_attio(
@@ -637,6 +669,16 @@ def test_service_processes_member_event_when_claimed(
         "mark_keyai_event_completed",
         lambda event_id: order.append("mark_completed"),
     )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "dispatch_new_member_admin_notification",
+        lambda p: order.append("admin") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_admin_notification_done",
+        lambda event_id: order.append("mark_admin"),
+    )
 
     keyai_webhooks.dispatch_keyai_member_tasks(payload)
 
@@ -645,6 +687,68 @@ def test_service_processes_member_event_when_claimed(
         "mark_attio",
         "whatsapp",
         "mark_whatsapp",
+        "mark_completed",
+    ]
+
+
+def test_service_processes_approved_member_event_with_admin_notification(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    order: list[str] = []
+    payload = MemberApprovedWebhookPayload.model_validate(_build_approved_payload())
+
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "begin_keyai_event_processing",
+        lambda event_id, member_id, event_type: KeyAIEventProcessingState(
+            should_process=True,
+        ),
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "dispatch_keyai_attio_sync",
+        lambda p: order.append("crm") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "dispatch_keyai_whatsapp_message",
+        lambda p: order.append("whatsapp") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "dispatch_new_member_admin_notification",
+        lambda p: order.append("admin") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_attio_done",
+        lambda event_id: order.append("mark_attio"),
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_whatsapp_done",
+        lambda event_id: order.append("mark_whatsapp"),
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_admin_notification_done",
+        lambda event_id: order.append("mark_admin"),
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_completed",
+        lambda event_id: order.append("mark_completed"),
+    )
+
+    keyai_webhooks.dispatch_keyai_member_tasks(payload)
+
+    assert order == [
+        "crm",
+        "mark_attio",
+        "whatsapp",
+        "mark_whatsapp",
+        "admin",
+        "mark_admin",
         "mark_completed",
     ]
 
@@ -689,12 +793,73 @@ def test_service_resumes_member_event_after_attio_completion(
         "mark_keyai_event_completed",
         lambda event_id: order.append("mark_completed"),
     )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "dispatch_new_member_admin_notification",
+        lambda p: order.append("admin") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_admin_notification_done",
+        lambda event_id: order.append("mark_admin"),
+    )
 
     keyai_webhooks.dispatch_keyai_member_tasks(payload)
 
     assert order == [
         "whatsapp",
         "mark_whatsapp",
+        "mark_completed",
+    ]
+
+
+def test_service_resumes_approved_member_event_before_admin_notification(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    order: list[str] = []
+    payload = MemberApprovedWebhookPayload.model_validate(_build_approved_payload())
+
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "begin_keyai_event_processing",
+        lambda event_id, member_id, event_type: KeyAIEventProcessingState(
+            should_process=True,
+            attio_done=True,
+            whatsapp_done=True,
+            admin_notification_done=False,
+        ),
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "dispatch_keyai_attio_sync",
+        lambda p: order.append("crm") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "dispatch_keyai_whatsapp_message",
+        lambda p: order.append("whatsapp") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "dispatch_new_member_admin_notification",
+        lambda p: order.append("admin") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_admin_notification_done",
+        lambda event_id: order.append("mark_admin"),
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_completed",
+        lambda event_id: order.append("mark_completed"),
+    )
+
+    keyai_webhooks.dispatch_keyai_member_tasks(payload)
+
+    assert order == [
+        "admin",
+        "mark_admin",
         "mark_completed",
     ]
 
@@ -731,6 +896,37 @@ def test_service_marks_member_event_failed_on_attio_error(
     keyai_webhooks.dispatch_keyai_member_tasks(payload)
 
     assert order == ["attio_sync_failed"]
+
+
+def test_service_marks_approved_member_event_failed_on_admin_notification_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    order: list[str] = []
+    payload = MemberApprovedWebhookPayload.model_validate(_build_approved_payload())
+
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "begin_keyai_event_processing",
+        lambda event_id, member_id, event_type: KeyAIEventProcessingState(
+            should_process=True,
+            attio_done=True,
+            whatsapp_done=True,
+        ),
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "dispatch_new_member_admin_notification",
+        lambda p: False,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_failed",
+        lambda event_id, error_message: order.append(error_message),
+    )
+
+    keyai_webhooks.dispatch_keyai_member_tasks(payload)
+
+    assert order == ["admin_notification_failed"]
 
 
 def test_joined_webhook_model_requires_questions() -> None:

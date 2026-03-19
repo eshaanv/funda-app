@@ -13,11 +13,14 @@ class KeyAIEventProcessingState(BaseModel):
             Defaults to False.
         whatsapp_done (bool, optional): Whether WhatsApp dispatch already completed.
             Defaults to False.
+        admin_notification_done (bool, optional): Whether the approved-member
+            admin notification already completed. Defaults to False.
     """
 
     should_process: bool
     attio_done: bool = False
     whatsapp_done: bool = False
+    admin_notification_done: bool = False
 
 
 class KeyAIEventRecord(BaseModel):
@@ -33,6 +36,8 @@ class KeyAIEventRecord(BaseModel):
             Defaults to False.
         whatsapp_done (bool, optional): Whether WhatsApp dispatch completed.
             Defaults to False.
+        admin_notification_done (bool, optional): Whether the approved-member
+            admin notification completed. Defaults to False.
     """
 
     event_id: str
@@ -41,3 +46,4 @@ class KeyAIEventRecord(BaseModel):
     status: Literal["processing", "failed", "completed"]
     attio_done: bool = False
     whatsapp_done: bool = False
+    admin_notification_done: bool = False

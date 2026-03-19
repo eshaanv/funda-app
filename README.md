@@ -79,6 +79,38 @@ If you want to override the Firestore project explicitly for the test:
 make test-local-webhook-firestore LOCAL_FIRESTORE_PROJECT_ID=stai-485819
 ```
 
+## Approved Admin Notification Functional Test
+
+To verify that an approved-member webhook sends the
+`funda_new_member_admin_notification` flow, run the approved admin functional
+test. It posts a unique `member.approved` event and then polls Firestore until
+the event record shows:
+
+- `attio_done = true`
+- `whatsapp_done = true`
+- `admin_notification_done = true`
+- `status = completed`
+
+Local:
+
+```bash
+export GOOGLE_CLOUD_PROJECT=stai-485819
+make auth
+make test-local-webhook-approved-admin
+```
+
+Dev:
+
+```bash
+make test-dev-webhook-approved-admin DEV_FIRESTORE_PROJECT_ID=stai-485819
+```
+
+Prod:
+
+```bash
+make test-prod-webhook-approved-admin PROD_FIRESTORE_PROJECT_ID=funda-prod-490316
+```
+
 You can override the target app URL or container settings if needed:
 
 ```bash
