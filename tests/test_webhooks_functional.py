@@ -74,6 +74,12 @@ def _common_member() -> dict:
         "fullName": "Eshaan Vipani",
         "lastName": "Vipani",
         "firstName": "Eshaan",
+    }
+
+
+def _joined_member() -> dict:
+    return {
+        **_common_member(),
         "companyName": "Wells Fargo",
         "linkedinUrl": "https://www.linkedin.com/in/eshaan-vipani/",
         "companyStage": "Public Company",
@@ -103,7 +109,7 @@ def _post_webhook(json: dict, base_url: str) -> httpx.Response:
 def _build_joined_payload(event_id: str) -> dict[str, object]:
     return {
         "event": "member.joined",
-        "member": _common_member(),
+        "member": _joined_member(),
         "status": {"new": "PENDING", "old": None},
         "eventId": event_id,
         "version": 1,
