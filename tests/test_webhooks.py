@@ -27,6 +27,7 @@ def _build_joined_payload() -> dict[str, object]:
             "fullName": "Rohan Jain",
             "lastName": "Jain",
             "firstName": "Rohan",
+            "linkedinUrl": "https://www.linkedin.com/in/member-profile",
         },
         "status": {
             "new": "PENDING",
@@ -79,6 +80,7 @@ def _build_approved_payload() -> dict[str, object]:
             "fullName": "Rohan Jain",
             "lastName": "Jain",
             "firstName": "Rohan",
+            "linkedinUrl": "https://www.linkedin.com/in/member-profile",
         },
         "status": {
             "new": "APPROVED",
@@ -327,10 +329,8 @@ def test_service_builds_attio_sync_request_with_job_title_and_company_website() 
     assert sync_request.company.company_website == "acme.ai"
 
 
-def test_service_skips_company_sync_for_non_joined_event() -> None:
+def test_service_skips_company_sync_for_non_joined_event_without_company_questions() -> None:
     payload_data = _build_approved_payload()
-    payload_data["member"]["companyName"] = "Acme AI"
-    payload_data["member"]["companyStage"] = "Seed"
     payload = MemberApprovedWebhookPayload.model_validate(payload_data)
 
     sync_request = keyai_webhooks.build_keyai_attio_sync_request(payload=payload)
@@ -361,6 +361,162 @@ def test_service_builds_non_joined_whatsapp_dispatch_request(
     assert send_request.to == "8511152215"
     assert send_request.template_name == expected_template_name
     assert send_request.template_metadata == {"first_name": "Rohan"}
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected_template_name"),
+    [
+        (
+            MemberApprovedWebhookPayload.model_validate(
+                {
+                    **_build_approved_payload(),
+                    "member": {
+                        **_build_approved_payload()["member"],
+                        "phone": "",
+                    },
+                    "questions": [
+                        {
+                            "answer": "8511152215",
+                            "question": "What is your whatsapp number?",
+                            "semantic_key": "whatsapp_number",
+                        }
+                    ],
+                }
+            ),
+            WhatsAppTemplateName.FUNDA_MEMBERSHIP_APPROVED,
+        ),
+        (
+            MemberRejectedWebhookPayload.model_validate(
+                {
+                    **_build_rejected_payload(),
+                    "member": {
+                        **_build_rejected_payload()["member"],
+                        "phone": "",
+                    },
+                    "questions": [
+                        {
+                            "answer": "8511152215",
+                            "question": "What is your whatsapp number?",
+                            "semantic_key": "whatsapp_number",
+                        }
+                    ],
+                }
+            ),
+            WhatsAppTemplateName.FUNDA_MEMBERSHIP_REJECTED,
+        ),
+    ],
+)
+def test_service_builds_non_joined_whatsapp_dispatch_request_from_question_fallback(
+    payload: BaseMemberWebhookPayload,
+    expected_template_name: WhatsAppTemplateName,
+) -> None:
+    send_request = keyai_webhooks.build_keyai_whatsapp_send_request(payload=payload)
+
+    assert send_request is not None
+    assert send_request.to == "8511152215"
+    assert send_request.template_name == expected_template_name
+    assert send_request.template_metadata == {"first_name": "Rohan"}
+
+
+def test_service_prefers_question_phone_for_joined_whatsapp_dispatch() -> None:
+    payload_data = _build_joined_payload()
+    payload_data["member"]["phone"] = "19998887777"
+    payload = MemberJoinedWebhookPayload.model_validate(payload_data)
+
+    send_request = keyai_webhooks.build_keyai_whatsapp_send_request(payload=payload)
+
+    assert send_request is not None
+    assert send_request.to == "8511152215"
+
+
+def test_service_prefers_question_phone_for_non_joined_whatsapp_dispatch() -> None:
+    payload_data = _build_approved_payload()
+    payload_data["member"]["phone"] = "19998887777"
+    payload_data["questions"] = [
+        {
+            "answer": "8511152215",
+            "question": "What is your whatsapp number?",
+            "semantic_key": "whatsapp_number",
+        }
+    ]
+    payload = MemberApprovedWebhookPayload.model_validate(payload_data)
+
+    send_request = keyai_webhooks.build_keyai_whatsapp_send_request(payload=payload)
+
+    assert send_request is not None
+    assert send_request.to == "8511152215"
+
+
+def test_service_builds_attio_sync_request_from_questions_before_member_fields() -> None:
+    payload_data = _build_joined_payload()
+    payload_data["member"]["phone"] = "19998887777"
+    payload_data["member"]["linkedinUrl"] = "https://www.linkedin.com/in/member-fallback"
+    payload = MemberJoinedWebhookPayload.model_validate(payload_data)
+
+    sync_request = keyai_webhooks.build_keyai_attio_sync_request(payload=payload)
+
+    assert sync_request.person.phone == "+18511152215"
+    assert sync_request.person.linkedin_url == "https://www.linkedin.com/in/rohan-jain"
+    assert sync_request.company is not None
+    assert sync_request.company.name == "Acme AI"
+    assert sync_request.company.stage == "Seed"
+
+
+def test_service_builds_attio_sync_request_from_member_fallback_for_non_joined_event() -> None:
+    payload_data = _build_approved_payload()
+    payload_data["member"]["phone"] = "19998887777"
+    payload_data["member"]["linkedinUrl"] = "https://www.linkedin.com/in/member-profile"
+    payload_data["questions"] = []
+    payload = MemberApprovedWebhookPayload.model_validate(payload_data)
+
+    sync_request = keyai_webhooks.build_keyai_attio_sync_request(payload=payload)
+
+    assert sync_request.person.phone == "+19998887777"
+    assert sync_request.person.linkedin_url == "https://www.linkedin.com/in/member-profile"
+    assert sync_request.company is None
+
+
+def test_service_prefers_question_fields_for_non_joined_attio_sync() -> None:
+    payload_data = _build_approved_payload()
+    payload_data["member"]["phone"] = "19998887777"
+    payload_data["member"]["linkedinUrl"] = "https://www.linkedin.com/in/member-profile"
+    payload_data["questions"] = [
+        {
+            "answer": "8511152215",
+            "question": "What is your whatsapp number?",
+            "semantic_key": "whatsapp_number",
+        },
+        {
+            "answer": "https://www.linkedin.com/in/question-profile",
+            "question": "What is your linked-in url?",
+            "semantic_key": "linked_in_url",
+        },
+        {
+            "answer": "Question Company",
+            "question": "What is your company name?",
+            "semantic_key": "company_name",
+        },
+        {
+            "answer": "Seed",
+            "question": "What is the funding stage?",
+            "semantic_key": "funding_stage",
+        },
+        {
+            "answer": "question.ai",
+            "question": "What is your company website domain?",
+            "semantic_key": "company_website_domain",
+        },
+    ]
+    payload = MemberApprovedWebhookPayload.model_validate(payload_data)
+
+    sync_request = keyai_webhooks.build_keyai_attio_sync_request(payload=payload)
+
+    assert sync_request.person.phone == "+18511152215"
+    assert sync_request.person.linkedin_url == "https://www.linkedin.com/in/question-profile"
+    assert sync_request.company is not None
+    assert sync_request.company.name == "Question Company"
+    assert sync_request.company.stage == "Seed"
+    assert sync_request.company.company_website == "question.ai"
 
 
 def test_service_dispatches_joined_event_to_whatsapp(
