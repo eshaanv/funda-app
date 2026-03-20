@@ -108,5 +108,5 @@ def test_request_json_does_not_send_body_for_get(
     assert captured_request == {
         "method": "GET",
         "data": None,
-        "content_type": "application/json",
+        "content_type": None,
     }
