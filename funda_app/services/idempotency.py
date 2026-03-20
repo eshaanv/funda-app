@@ -205,6 +205,4 @@ def mark_keyai_event_failed(event_id: str, error_message: str) -> None:
 def _update_keyai_event(event_id: str, data: dict[str, object]) -> None:
     get_app_settings().firestore_client_settings.client.collection(
         KEYAI_WEBHOOK_COLLECTION
-    ).document(
-        event_id
-    ).set(data, merge=True)
+    ).document(event_id).set(data, merge=True)

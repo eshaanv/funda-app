@@ -424,13 +424,17 @@ def test_sync_attio_member_retries_company_sync_without_optional_fields_on_400(
     ) -> dict[str, object]:
         captured_calls.append({"method": method, "url": url, "payload": payload})
         if "companies/records" in url and "query" not in url:
-            if len(
-                [
-                    call
-                    for call in captured_calls
-                    if "companies/records" in call["url"] and "query" not in call["url"]
-                ]
-            ) == 1:
+            if (
+                len(
+                    [
+                        call
+                        for call in captured_calls
+                        if "companies/records" in call["url"]
+                        and "query" not in call["url"]
+                    ]
+                )
+                == 1
+            ):
                 raise error.HTTPError(
                     url=url,
                     code=400,
@@ -483,7 +487,10 @@ def test_sync_attio_member_retries_company_sync_without_optional_fields_on_400(
     ]
     assert len(company_calls) == 2
     assert company_calls[0]["payload"]["data"]["values"]["company_stage"] == "Series A"
-    assert company_calls[0]["payload"]["data"]["values"]["company_website"] == "startup.com"
+    assert (
+        company_calls[0]["payload"]["data"]["values"]["company_website"]
+        == "startup.com"
+    )
     assert company_calls[1]["payload"]["data"]["values"] == {
         "name": "Startup Inc",
         "domains": [{"domain": "startup.com"}],
@@ -505,7 +512,12 @@ def test_sync_attio_member_retries_person_sync_without_optional_fields_on_400(
     ) -> dict[str, object]:
         captured_calls.append({"method": method, "url": url, "payload": payload})
         if "people/records" in url:
-            if len([call for call in captured_calls if "people/records" in call["url"]]) == 1:
+            if (
+                len(
+                    [call for call in captured_calls if "people/records" in call["url"]]
+                )
+                == 1
+            ):
                 raise error.HTTPError(
                     url=url,
                     code=400,
@@ -550,7 +562,10 @@ def test_sync_attio_member_retries_person_sync_without_optional_fields_on_400(
 
     person_calls = [call for call in captured_calls if "people/records" in call["url"]]
     assert len(person_calls) == 2
-    assert person_calls[0]["payload"]["data"]["values"]["linkedin"] == "https://www.linkedin.com/in/founder"
+    assert (
+        person_calls[0]["payload"]["data"]["values"]["linkedin"]
+        == "https://www.linkedin.com/in/founder"
+    )
     assert person_calls[0]["payload"]["data"]["values"]["job_title"] == "CEO"
     assert "linkedin" not in person_calls[1]["payload"]["data"]["values"]
     assert "job_title" not in person_calls[1]["payload"]["data"]["values"]
@@ -615,7 +630,9 @@ def test_get_linked_company_name_for_member_returns_none_without_person(
     monkeypatch.setattr(
         attio,
         "request_json",
-        lambda method, url, payload, access_token, timeout_seconds, retry_attempts=1: {"data": []},
+        lambda method, url, payload, access_token, timeout_seconds, retry_attempts=1: {
+            "data": []
+        },
     )
 
     company_name = attio.get_linked_company_name_for_member(
@@ -700,7 +717,10 @@ def test_get_latest_lifecycle_event_id_for_member_returns_event_id(
     )
 
     assert event_id == "event-123"
-    assert captured_calls[1]["url"] == "https://api.attio.com/v2/lists/list-123/entries/query"
+    assert (
+        captured_calls[1]["url"]
+        == "https://api.attio.com/v2/lists/list-123/entries/query"
+    )
     assert captured_calls[1]["payload"] == {
         "filter": {
             "parent_record_id": {
@@ -710,4 +730,3 @@ def test_get_latest_lifecycle_event_id_for_member_returns_event_id(
         "limit": 1,
         "offset": 0,
     }
-

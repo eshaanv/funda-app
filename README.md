@@ -32,10 +32,19 @@ uv run ruff check .
 Run the webhook functional test against the detached local container:
 
 ```bash
-make test-local-webhook
+make test-webhook
 ```
 
-`make test-local-webhook` builds the image if needed, starts a fresh container,
+Use `WEBHOOK_HOST` (local|dev|prod) and `WEBHOOK_TYPE` (all|joined|approved|approved-admin|rejected|removed|left|firestore-dedupe) to target specific tests:
+
+```bash
+make test-webhook                           # local, all (default)
+make test-webhook WEBHOOK_HOST=dev          # dev, all
+make test-webhook WEBHOOK_TYPE=joined       # local, joined only
+make test-webhook WEBHOOK_HOST=prod WEBHOOK_TYPE=approved
+```
+
+`make test-webhook` (with default `WEBHOOK_HOST=local`) builds the image if needed, starts a fresh container,
 waits for `/health`, then posts the `member.joined` functional test payload.
 The container stays up afterward so you can inspect runtime logs.
 `make run-local-container` always replaces any existing container with the same
@@ -65,7 +74,7 @@ project in `.env` and ensure ADC credentials exist:
 ```bash
 export GOOGLE_CLOUD_PROJECT=stai-485819
 make auth
-make test-local-webhook-firestore
+make test-webhook WEBHOOK_TYPE=firestore-dedupe
 ```
 
 That target sends two concurrent `member.joined` webhook requests with the same
@@ -76,7 +85,7 @@ Firestore so you can inspect it in the console afterward.
 If you want to override the Firestore project explicitly for the test:
 
 ```bash
-make test-local-webhook-firestore LOCAL_FIRESTORE_PROJECT_ID=stai-485819
+make test-webhook WEBHOOK_TYPE=firestore-dedupe LOCAL_FIRESTORE_PROJECT_ID=stai-485819
 ```
 
 ## Approved Admin Notification Functional Test
@@ -96,25 +105,25 @@ Local:
 ```bash
 export GOOGLE_CLOUD_PROJECT=stai-485819
 make auth
-make test-local-webhook-approved-admin
+make test-webhook WEBHOOK_TYPE=approved-admin
 ```
 
 Dev:
 
 ```bash
-make test-dev-webhook-approved-admin DEV_FIRESTORE_PROJECT_ID=stai-485819
+make test-webhook WEBHOOK_HOST=dev WEBHOOK_TYPE=approved-admin DEV_FIRESTORE_PROJECT_ID=stai-485819
 ```
 
 Prod:
 
 ```bash
-make test-prod-webhook-approved-admin PROD_FIRESTORE_PROJECT_ID=funda-prod-490316
+make test-webhook WEBHOOK_HOST=prod WEBHOOK_TYPE=approved-admin PROD_FIRESTORE_PROJECT_ID=funda-prod-490316
 ```
 
 You can override the target app URL or container settings if needed:
 
 ```bash
-make test-local-webhook LOCAL_WEBHOOK_BASE_URL=http://127.0.0.1:8080
+make test-webhook LOCAL_WEBHOOK_BASE_URL=http://127.0.0.1:8080
 make run-local-container LOCAL_CONTAINER_NAME=funda-app-local LOCAL_CONTAINER_PORT=8080
 ```
 

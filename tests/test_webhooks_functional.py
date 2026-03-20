@@ -99,9 +99,7 @@ def _post_webhook(json: dict, base_url: str) -> httpx.Response:
             timeout=10.0,
         )
     except httpx.ConnectError as exc:
-        pytest.fail(
-            f"Could not connect to webhook at {base_url}: {exc}"
-        )
+        pytest.fail(f"Could not connect to webhook at {base_url}: {exc}")
 
 
 def _build_joined_payload(event_id: str) -> dict[str, object]:
@@ -164,12 +162,21 @@ def _build_approved_payload(event_id: str) -> dict[str, object]:
 def _should_skip_target(target: str) -> tuple[bool, str]:
     """Returns (skip, reason). Skip when opt-in missing, target filtered, or URL not set."""
     if not _webhook_test_enabled():
-        return True, "Set RUN_LOCAL_WEBHOOK_TESTS=1 or WEBHOOK_TEST_TARGET=local|dev|prod to run."
+        return (
+            True,
+            "Set RUN_LOCAL_WEBHOOK_TESTS=1 or WEBHOOK_TEST_TARGET=local|dev|prod to run.",
+        )
     if WEBHOOK_TEST_TARGET is not None and target != WEBHOOK_TEST_TARGET:
-        return True, f"WEBHOOK_TEST_TARGET={WEBHOOK_TEST_TARGET!r}, skipping {target!r}."
+        return (
+            True,
+            f"WEBHOOK_TEST_TARGET={WEBHOOK_TEST_TARGET!r}, skipping {target!r}.",
+        )
     base_url = _base_url_for_target(target)
     if base_url is None:
-        return True, f"No base URL for {target!r}. Set {'DEV_WEBHOOK_BASE_URL' if target == 'dev' else 'PROD_WEBHOOK_BASE_URL'}."
+        return (
+            True,
+            f"No base URL for {target!r}. Set {'DEV_WEBHOOK_BASE_URL' if target == 'dev' else 'PROD_WEBHOOK_BASE_URL'}.",
+        )
     return False, ""
 
 

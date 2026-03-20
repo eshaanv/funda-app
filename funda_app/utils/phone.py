@@ -47,4 +47,3 @@ def get_country_code(phone_number: str) -> str | None:
         return "US"
 
     return None
-

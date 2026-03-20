@@ -56,6 +56,8 @@ def test_live_new_member_admin_sentence_generation() -> None:
     assert len(member_sentence) <= 180
     assert len(company_sentence) <= 140
     assert "Wells Fargo" in company_sentence
-    assert member_sentence != "Eshaan Vipani is an approved member of the Funda community."
+    assert (
+        member_sentence != "Eshaan Vipani is an approved member of the Funda community."
+    )
     assert company_sentence != "Wells Fargo is the company associated with this member."
     assert company_sentence != "Company not found"

@@ -29,9 +29,9 @@ class CommunityPayload(BaseModel):
 class MemberPayload(BaseModel):
     id: str
     email: str
-    phone: str
+    phone: str | None = None
     fullName: str
-    lastName: str
+    lastName: str | None = None
     firstName: str
     companyName: str | None = None
     linkedinUrl: str | None = None
@@ -41,7 +41,7 @@ class MemberPayload(BaseModel):
 class MemberQuestionPayload(BaseModel):
     question: str
     answer: str
-    semantic_key: str | None = None
+    semantic_key: str
 
 
 class BaseMemberStatusPayload(BaseModel):
@@ -88,7 +88,7 @@ class BaseMemberWebhookPayload(BaseModel):
 class MemberJoinedWebhookPayload(BaseMemberWebhookPayload):
     event: Literal[MemberWebhookEvent.MEMBER_JOINED] = MemberWebhookEvent.MEMBER_JOINED
     status: MemberJoinedStatusPayload
-    questions: list[MemberQuestionPayload]
+    questions: list[MemberQuestionPayload] | None = None
 
 
 class MemberApprovedWebhookPayload(BaseMemberWebhookPayload):

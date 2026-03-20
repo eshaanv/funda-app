@@ -3,7 +3,7 @@ include .env
 export
 endif
 
-.PHONY: format lint build-image push-image
+.PHONY: format lint typecheck build-image push-image
 
 TARGET ?= .
 BUILD_IMAGE_FLAGS ?= --pull --no-cache
@@ -14,6 +14,9 @@ format:
 
 lint:
 	uv run ruff check --fix $(TARGET)
+
+typecheck:
+	uv run ty check $(TARGET)
 
 build-image:
 	docker buildx build --platform linux/amd64 $(BUILD_IMAGE_FLAGS) --load -t "$(IMAGE)" .
