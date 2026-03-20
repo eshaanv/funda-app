@@ -304,8 +304,16 @@ def test_service_builds_attio_sync_request_with_job_title_and_company_website() 
     payload_data = _build_joined_payload()
     payload_data["questions"].extend(
         [
-            {"question": "What is your job title?", "answer": "CEO"},
-            {"question": "What is your company website domain?", "answer": "acme.ai"},
+            {
+                "question": "What is your job title?",
+                "answer": "CEO",
+                "semantic_key": "job_title",
+            },
+            {
+                "question": "What is your company website domain?",
+                "answer": "acme.ai",
+                "semantic_key": "company_website_domain",
+            },
         ]
     )
     payload = MemberJoinedWebhookPayload.model_validate(payload_data)

@@ -1,9 +1,5 @@
 """
-Hardcoded Key.ai application question definitions and extraction.
-
-The six questions in the member application payload are fixed. This module
-provides a single source of truth for matching question text and extracting
-answers.
+Key.ai application question extraction by semantic key.
 """
 
 from enum import StrEnum
@@ -21,19 +17,6 @@ class KeyaiQuestionField(StrEnum):
     JOB_TITLE = "job_title"
     FUNDING_STAGE = "funding_stage"
 
-
-# Substring(s) used to match incoming question text (case-insensitive).
-# First match wins; order does not matter for uniqueness.
-_KEYAI_QUESTION_PATTERNS: dict[KeyaiQuestionField, list[str]] = {
-    KeyaiQuestionField.LINKEDIN_URL: ["linked"],
-    KeyaiQuestionField.WHATSAPP_PHONE_NUMBER: ["whatsapp"],
-    KeyaiQuestionField.COMPANY_NAME: ["company name"],
-    KeyaiQuestionField.COMPANY_WEBSITE_DOMAIN: ["website", "domain"],
-    KeyaiQuestionField.JOB_TITLE: ["job title"],
-    KeyaiQuestionField.FUNDING_STAGE: ["funding stage"],
-}
-
-
 def get_question_answer(
     questions: list[MemberQuestionPayload] | None,
     field: KeyaiQuestionField,
@@ -41,8 +24,7 @@ def get_question_answer(
     """
     Returns the answer for a given Key.ai question field, or None if not found.
 
-    Matches payload question text against hardcoded patterns for the six
-    fixed application questions.
+    Matches payload question semantic keys against the fixed question fields.
 
     Args:
         questions: List of question/answer pairs from the webhook payload.
@@ -59,14 +41,6 @@ def get_question_answer(
         if item.semantic_key == field.value:
             value = (item.answer or "").strip()
             return value if value else None
-
-    patterns = _KEYAI_QUESTION_PATTERNS.get(field, [])
-    for item in questions:
-        lowered_question = item.question.lower()
-        for pattern in patterns:
-            if pattern.lower() in lowered_question:
-                value = (item.answer or "").strip()
-                return value if value else None
 
     return None
 

@@ -1,4 +1,3 @@
-
 from funda_app.schemas.webhooks import MemberQuestionPayload
 from funda_app.services.keyai_questions import (
     KeyaiQuestionField,
@@ -91,16 +90,3 @@ def test_get_question_answer_trims_and_returns_empty_as_none() -> None:
         ),
     ]
     assert get_question_answer(questions, KeyaiQuestionField.JOB_TITLE) is None
-
-
-def test_get_question_answer_falls_back_to_question_text_when_semantic_key_missing() -> None:
-    questions = [
-        MemberQuestionPayload(
-            question="What is your linked-in url?",
-            answer="https://www.linkedin.com/in/jane",
-        ),
-    ]
-    assert (
-        get_question_answer(questions, KeyaiQuestionField.LINKEDIN_URL)
-        == "https://www.linkedin.com/in/jane"
-    )
