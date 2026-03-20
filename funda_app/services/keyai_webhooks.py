@@ -51,6 +51,58 @@ from funda_app.services.whatsapp import send_whatsapp_template_message
 logger = logging.getLogger(__name__)
 
 
+def _resolve_phone_number(payload: BaseMemberWebhookPayload) -> str | None:
+    """
+    Resolves the member phone number from questions first, then member fields.
+
+    Args:
+        payload (BaseMemberWebhookPayload): Validated Key.ai webhook payload.
+
+    Returns:
+        str | None: Resolved phone number, or None when unavailable.
+    """
+    return get_whatsapp_phone_number(payload.questions) or payload.member.phone
+
+
+def _resolve_linkedin_url(payload: BaseMemberWebhookPayload) -> str | None:
+    """
+    Resolves LinkedIn URL from questions first, then member fields.
+
+    Args:
+        payload (BaseMemberWebhookPayload): Validated Key.ai webhook payload.
+
+    Returns:
+        str | None: Resolved LinkedIn URL, or None when unavailable.
+    """
+    return get_linkedin_url(payload.questions) or payload.member.linkedinUrl
+
+
+def _resolve_company_name(payload: BaseMemberWebhookPayload) -> str | None:
+    """
+    Resolves company name from questions.
+
+    Args:
+        payload (BaseMemberWebhookPayload): Validated Key.ai webhook payload.
+
+    Returns:
+        str | None: Resolved company name, or None when unavailable.
+    """
+    return get_company_name(payload.questions)
+
+
+def _resolve_company_stage(payload: BaseMemberWebhookPayload) -> str | None:
+    """
+    Resolves company stage from questions.
+
+    Args:
+        payload (BaseMemberWebhookPayload): Validated Key.ai webhook payload.
+
+    Returns:
+        str | None: Resolved company stage, or None when unavailable.
+    """
+    return get_company_stage(payload.questions)
+
+
 def handle_keyai_webhook(payload: MemberWebhookPayload) -> WebhookAcceptedResponse:
     """
     Handles all webhook payloads received from Key.ai.
@@ -105,9 +157,7 @@ def build_keyai_whatsapp_send_request(
         )
         return None
 
-    phone_number = payload.member.phone
-    if payload.event == MemberWebhookEvent.MEMBER_JOINED:
-        phone_number = get_whatsapp_phone_number(payload.questions) or ""
+    phone_number = _resolve_phone_number(payload) or ""
 
     if not (phone_number or "").strip():
         logger.info(
@@ -142,19 +192,15 @@ def build_keyai_attio_sync_request(
     """
     member = payload.member
     questions = payload.questions
-    company_name = get_company_name(questions)
-    company_stage = get_company_stage(questions)
+    company_name = _resolve_company_name(payload)
+    company_stage = _resolve_company_stage(payload)
     company_website = get_company_website_domain(questions)
-    phone_number = member.phone
-    linkedin_url = member.linkedinUrl
-
-    if payload.event == MemberWebhookEvent.MEMBER_JOINED:
-        phone_number = get_whatsapp_phone_number(questions)
-        linkedin_url = get_linkedin_url(questions)
+    phone_number = _resolve_phone_number(payload)
+    linkedin_url = _resolve_linkedin_url(payload)
 
     company = None
 
-    if payload.event == MemberWebhookEvent.MEMBER_JOINED and company_name is not None:
+    if company_name is not None:
         company = AttioCompanySyncPayload(
             name=company_name,
             stage=company_stage,
@@ -417,7 +463,7 @@ def build_new_member_admin_blurbs(
         last_name=payload.member.lastName,
         linkedin_url=payload.member.linkedinUrl or "unknown",
         company_name=company_name,
-        company_stage=payload.member.companyStage or "unknown",
+        company_stage=get_company_stage(payload.questions) or "unknown",
         company_website=get_company_website_domain(payload.questions) or "unknown",
         occurred_at=payload.occurredAt.isoformat(),
         company_description="unknown",

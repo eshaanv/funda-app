@@ -109,7 +109,8 @@ CRM sync only.
     "lastName": "...",
     "fullName": "...",
     "email": "...",
-    "phone": "..."
+    "phone": "...",
+    "linkedinUrl": "..."
   },
   "status": {
     "old": "...",
@@ -125,3 +126,5 @@ For the current high-level runtime flow, see [architecture.md](architecture.md).
 For the current Funda member-facing WhatsApp template standards for these
 events, see
 [member-webhook-template-standards.md](member-webhook-template-standards.md).
+For the current field-by-field sourcing and fallback behavior, see
+[member-webhook-field-sourcing.md](member-webhook-field-sourcing.md).

@@ -33,9 +33,7 @@ class MemberPayload(BaseModel):
     fullName: str
     lastName: str | None = None
     firstName: str
-    companyName: str | None = None
     linkedinUrl: str | None = None
-    companyStage: str | None = None
 
 
 class MemberQuestionPayload(BaseModel):
