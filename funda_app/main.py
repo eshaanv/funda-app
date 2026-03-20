@@ -40,7 +40,7 @@ def _configure_request_logging(app: FastAPI) -> None:
         started_at = time.perf_counter()
         if request.url.path == "/webhooks/keyai/users":
             raw_body = await request.body()
-            logger.debug(
+            logger.info(
                 "Incoming request payload: method=%s path=%s body=%s",
                 request.method,
                 request.url.path,
