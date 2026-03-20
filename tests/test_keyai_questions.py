@@ -10,7 +10,7 @@ def test_get_question_answer_returns_answer_for_linkedin_url() -> None:
         MemberQuestionPayload(
             question="What is your linked-in url?",
             answer="https://www.linkedin.com/in/jane",
-            semantic_key="linkedin_url",
+            semantic_key="linked_in_url",
         ),
     ]
     assert (

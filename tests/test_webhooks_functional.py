@@ -80,9 +80,7 @@ def _common_member() -> dict:
 def _joined_member() -> dict:
     return {
         **_common_member(),
-        "companyName": "Wells Fargo",
-        "linkedinUrl": "https://www.linkedin.com/in/eshaan-vipani/",
-        "companyStage": "Public Company",
+        "phone": "",
     }
 
 
@@ -118,12 +116,12 @@ def _build_joined_payload(event_id: str) -> dict[str, object]:
             {
                 "question": "Linkedin URL?",
                 "answer": "linkedin.com/in/eshaan-vipani/",
-                "semantic_key": "linkedin_url",
+                "semantic_key": "linked_in_url",
             },
             {
                 "question": "WhatsApp Phone Number? (Needed to add you into our WhatsApp community)",
                 "answer": "9256400611",
-                "semantic_key": "whatsapp_phone_number",
+                "semantic_key": "whatsapp_number",
             },
             {
                 "question": "Company Name?",

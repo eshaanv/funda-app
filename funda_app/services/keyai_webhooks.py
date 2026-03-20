@@ -44,6 +44,7 @@ from funda_app.services.keyai_questions import (
     get_company_website_domain,
     get_job_title,
     get_linkedin_url,
+    get_whatsapp_phone_number,
 )
 from funda_app.services.whatsapp import send_whatsapp_template_message
 
@@ -104,7 +105,11 @@ def build_keyai_whatsapp_send_request(
         )
         return None
 
-    if not payload.member.phone.strip():
+    phone_number = payload.member.phone
+    if payload.event == MemberWebhookEvent.MEMBER_JOINED:
+        phone_number = get_whatsapp_phone_number(payload.questions) or ""
+
+    if not phone_number.strip():
         logger.info(
             "Skipping WhatsApp dispatch: missing phone: event=%s member_id=%s event_id=%s community_id=%s",
             payload.event,
@@ -115,7 +120,7 @@ def build_keyai_whatsapp_send_request(
         return None
 
     return WhatsAppTemplateSendRequest(
-        to=payload.member.phone,
+        to=phone_number,
         template_name=template_name,
         template_metadata={
             "first_name": payload.member.firstName,
@@ -137,9 +142,16 @@ def build_keyai_attio_sync_request(
     """
     member = payload.member
     questions = payload.questions
-    company_name = get_company_name(member.companyName, questions)
-    company_stage = get_company_stage(member.companyStage, questions)
+    company_name = get_company_name(questions)
+    company_stage = get_company_stage(questions)
     company_website = get_company_website_domain(questions)
+    phone_number = member.phone
+    linkedin_url = member.linkedinUrl
+
+    if payload.event == MemberWebhookEvent.MEMBER_JOINED:
+        phone_number = get_whatsapp_phone_number(questions)
+        linkedin_url = get_linkedin_url(questions)
+
     company = None
 
     if (
@@ -165,8 +177,8 @@ def build_keyai_attio_sync_request(
             full_name=member.fullName,
             first_name=member.firstName,
             last_name=member.lastName,
-            phone=normalize_phone_number(member.phone),
-            linkedin_url=get_linkedin_url(member.linkedinUrl, questions),
+            phone=normalize_phone_number(phone_number),
+            linkedin_url=linkedin_url,
             job_title=get_job_title(questions),
         ),
         company=company,

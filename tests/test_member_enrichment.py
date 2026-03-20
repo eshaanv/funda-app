@@ -11,13 +11,10 @@ def _build_joined_payload() -> dict[str, object]:
         "member": {
             "id": "14b8d602-1eee-11f1-b904-0242ac14000a",
             "email": "rohan+1@key.ai",
-            "phone": "8511152215",
+            "phone": "",
             "fullName": "Rohan Jain",
             "lastName": "Jain",
             "firstName": "Rohan",
-            "companyName": None,
-            "linkedinUrl": None,
-            "companyStage": None,
         },
         "status": {
             "new": "PENDING",
@@ -33,7 +30,12 @@ def _build_joined_payload() -> dict[str, object]:
             {
                 "answer": "https://www.linkedin.com/in/rohan-jain",
                 "question": "What is your linked-in url?",
-                "semantic_key": "linkedin_url",
+                "semantic_key": "linked_in_url",
+            },
+            {
+                "answer": "8511152215",
+                "question": "What is your whatsapp number?",
+                "semantic_key": "whatsapp_number",
             },
             {
                 "answer": "Acme AI",
@@ -54,12 +56,8 @@ def test_build_enrichment_request_uses_questions_fallback() -> None:
     MemberJoinedWebhookPayload.model_validate(_build_joined_payload())
 
 
-def test_build_enrichment_request_prefers_top_level_fields() -> None:
-    payload_data = _build_joined_payload()
-    payload_data["member"]["linkedinUrl"] = "https://www.linkedin.com/in/top-level"
-    payload_data["member"]["companyName"] = "Top Level Inc"
-    payload_data["member"]["companyStage"] = "Series A"
-    MemberJoinedWebhookPayload.model_validate(payload_data)
+def test_build_enrichment_request_accepts_question_only_fields() -> None:
+    MemberJoinedWebhookPayload.model_validate(_build_joined_payload())
 
 
 def test_build_enrichment_request_returns_none_without_linkedin() -> None:

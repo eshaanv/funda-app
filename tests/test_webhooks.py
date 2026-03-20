@@ -23,13 +23,10 @@ def _build_joined_payload() -> dict[str, object]:
         "member": {
             "id": "14b8d602-1eee-11f1-b904-0242ac14000a",
             "email": "rohan+1@key.ai",
-            "phone": "8511152215",
+            "phone": "",
             "fullName": "Rohan Jain",
             "lastName": "Jain",
             "firstName": "Rohan",
-            "companyName": None,
-            "linkedinUrl": None,
-            "companyStage": None,
         },
         "status": {
             "new": "PENDING",
@@ -50,7 +47,12 @@ def _build_joined_payload() -> dict[str, object]:
             {
                 "answer": "https://www.linkedin.com/in/rohan-jain",
                 "question": "What is your linked-in url?",
-                "semantic_key": "linkedin_url",
+                "semantic_key": "linked_in_url",
+            },
+            {
+                "answer": "8511152215",
+                "question": "What is your whatsapp number?",
+                "semantic_key": "whatsapp_number",
             },
             {
                 "answer": "Acme AI",
@@ -282,7 +284,7 @@ def test_service_skips_non_approved_admin_notification_request() -> None:
     assert send_request is None
 
 
-def test_service_builds_attio_sync_request_with_question_fallbacks() -> None:
+def test_service_builds_attio_sync_request_from_joined_questions() -> None:
     sync_request = keyai_webhooks.build_keyai_attio_sync_request(
         payload=MemberJoinedWebhookPayload.model_validate(_build_joined_payload()),
     )
