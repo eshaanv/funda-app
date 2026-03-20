@@ -109,7 +109,7 @@ def build_keyai_whatsapp_send_request(
     if payload.event == MemberWebhookEvent.MEMBER_JOINED:
         phone_number = get_whatsapp_phone_number(payload.questions) or ""
 
-    if not phone_number.strip():
+    if not (phone_number or "").strip():
         logger.info(
             "Skipping WhatsApp dispatch: missing phone: event=%s member_id=%s event_id=%s community_id=%s",
             payload.event,
@@ -154,10 +154,7 @@ def build_keyai_attio_sync_request(
 
     company = None
 
-    if (
-        payload.event == MemberWebhookEvent.MEMBER_JOINED
-        and company_name is not None
-    ):
+    if payload.event == MemberWebhookEvent.MEMBER_JOINED and company_name is not None:
         company = AttioCompanySyncPayload(
             name=company_name,
             stage=company_stage,

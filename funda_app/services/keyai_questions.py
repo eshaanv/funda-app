@@ -17,6 +17,7 @@ class KeyaiQuestionField(StrEnum):
     JOB_TITLE = "job_title"
     FUNDING_STAGE = "funding_stage"
 
+
 def get_question_answer(
     questions: list[MemberQuestionPayload] | None,
     field: KeyaiQuestionField,

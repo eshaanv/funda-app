@@ -232,7 +232,7 @@ def _sync_company(company: AttioCompanySyncPayload, settings: AppSettings) -> st
                 timeout_seconds=settings.attio_timeout_seconds,
                 retry_attempts=3,
             )
-        
+
         return _extract_record_id(response)
 
     record_url = (
@@ -508,8 +508,6 @@ def _build_company_values(
         values[ATTIO_SCHEMA.company.company_website_attribute] = company.company_website
 
     return values
-
-
 
 
 def _build_lifecycle_entry_values(

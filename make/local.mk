@@ -1,4 +1,4 @@
-.PHONY: auth _ensure-local-webhook-ready test-local-webhook test-local-webhook-joined test-local-webhook-approved test-local-webhook-approved-admin test-local-webhook-rejected test-local-webhook-removed test-local-webhook-left test-local-webhook-firestore test-dev-webhook test-dev-webhook-joined test-dev-webhook-approved test-dev-webhook-approved-admin test-dev-webhook-rejected test-dev-webhook-removed test-dev-webhook-left test-prod-webhook test-prod-webhook-joined test-prod-webhook-approved test-prod-webhook-approved-admin test-prod-webhook-rejected test-prod-webhook-removed test-prod-webhook-left run-local-container logs-local-container
+.PHONY: auth _ensure-local-webhook-ready test-webhook run-local-container logs-local-container
 .PHONY: attio-founder-lifecycle-attributes attio-people-attributes attio-company-attributes
 
 APP_ENV ?= dev
@@ -57,13 +57,17 @@ attio-company-attributes-dev:
 attio-company-attributes-prod:
 	@$(MAKE) APP_ENV=prod attio-company-attributes
 
-WEBHOOK_PYTEST = RUN_LOCAL_WEBHOOK_TESTS=1 LOCAL_WEBHOOK_BASE_URL="$(LOCAL_WEBHOOK_BASE_URL)" WEBHOOK_TEST_TARGET=local uv run pytest tests/test_webhooks_functional.py -q
-WEBHOOK_FIRESTORE_PYTEST = RUN_LOCAL_WEBHOOK_TESTS=1 LOCAL_WEBHOOK_BASE_URL="$(LOCAL_WEBHOOK_BASE_URL)" WEBHOOK_TEST_TARGET=local LOCAL_FIRESTORE_PROJECT_ID="$(if $(LOCAL_FIRESTORE_PROJECT_ID),$(LOCAL_FIRESTORE_PROJECT_ID),$(GOOGLE_CLOUD_PROJECT))" uv run pytest tests/test_webhooks_functional.py -k "test_member_joined_webhook_dedupes_concurrent_duplicate_event_ids[local]" -q
-WEBHOOK_APPROVED_ADMIN_PYTEST = RUN_LOCAL_WEBHOOK_TESTS=1 LOCAL_WEBHOOK_BASE_URL="$(LOCAL_WEBHOOK_BASE_URL)" WEBHOOK_TEST_TARGET=local LOCAL_FIRESTORE_PROJECT_ID="$(if $(LOCAL_FIRESTORE_PROJECT_ID),$(LOCAL_FIRESTORE_PROJECT_ID),$(GOOGLE_CLOUD_PROJECT))" uv run pytest tests/test_webhooks_functional.py -k "test_member_approved_webhook_completes_admin_notification[local]" -q
-WEBHOOK_PYTEST_DEV = RUN_LOCAL_WEBHOOK_TESTS=1 APP_ENV=dev WEBHOOK_TEST_TARGET=dev uv run pytest tests/test_webhooks_functional.py -k "dev" -q
-WEBHOOK_APPROVED_ADMIN_PYTEST_DEV = RUN_LOCAL_WEBHOOK_TESTS=1 APP_ENV=dev WEBHOOK_TEST_TARGET=dev DEV_FIRESTORE_PROJECT_ID="$(if $(DEV_FIRESTORE_PROJECT_ID),$(DEV_FIRESTORE_PROJECT_ID),$(GOOGLE_CLOUD_PROJECT))" uv run pytest tests/test_webhooks_functional.py -k "test_member_approved_webhook_completes_admin_notification[dev]" -q
-WEBHOOK_PYTEST_PROD = RUN_LOCAL_WEBHOOK_TESTS=1 APP_ENV=prod WEBHOOK_TEST_TARGET=prod uv run pytest tests/test_webhooks_functional.py -k "prod" -q
-WEBHOOK_APPROVED_ADMIN_PYTEST_PROD = RUN_LOCAL_WEBHOOK_TESTS=1 APP_ENV=prod WEBHOOK_TEST_TARGET=prod PROD_FIRESTORE_PROJECT_ID="$(if $(PROD_FIRESTORE_PROJECT_ID),$(PROD_FIRESTORE_PROJECT_ID),$(GOOGLE_CLOUD_PROJECT))" uv run pytest tests/test_webhooks_functional.py -k "test_member_approved_webhook_completes_admin_notification[prod]" -q
+# Webhook test parameters: HOST (local|dev|prod), TYPE (all|joined|approved|approved-admin|rejected|removed|left|firestore-dedupe)
+WEBHOOK_HOST ?= local
+WEBHOOK_TYPE ?= all
+
+WEBHOOK_PYTEST_BASE = uv run pytest tests/test_webhooks_functional.py -q
+WEBHOOK_ENV_local = RUN_LOCAL_WEBHOOK_TESTS=1 LOCAL_WEBHOOK_BASE_URL="$(LOCAL_WEBHOOK_BASE_URL)" WEBHOOK_TEST_TARGET=local
+WEBHOOK_ENV_dev = RUN_LOCAL_WEBHOOK_TESTS=1 APP_ENV=dev WEBHOOK_TEST_TARGET=dev
+WEBHOOK_ENV_prod = RUN_LOCAL_WEBHOOK_TESTS=1 APP_ENV=prod WEBHOOK_TEST_TARGET=prod
+WEBHOOK_FIRESTORE_PROJECT_local = LOCAL_FIRESTORE_PROJECT_ID="$(if $(LOCAL_FIRESTORE_PROJECT_ID),$(LOCAL_FIRESTORE_PROJECT_ID),$(GOOGLE_CLOUD_PROJECT))"
+WEBHOOK_FIRESTORE_PROJECT_dev = DEV_FIRESTORE_PROJECT_ID="$(if $(DEV_FIRESTORE_PROJECT_ID),$(DEV_FIRESTORE_PROJECT_ID),$(GOOGLE_CLOUD_PROJECT))"
+WEBHOOK_FIRESTORE_PROJECT_prod = PROD_FIRESTORE_PROJECT_ID="$(if $(PROD_FIRESTORE_PROJECT_ID),$(PROD_FIRESTORE_PROJECT_ID),$(GOOGLE_CLOUD_PROJECT))"
 
 _ensure-local-webhook-ready: run-local-container
 	@echo "Waiting for local container at $(LOCAL_WEBHOOK_BASE_URL)"
@@ -78,71 +82,24 @@ _ensure-local-webhook-ready: run-local-container
 		exit 1; \
 	}
 
-test-local-webhook: _ensure-local-webhook-ready
-	$(WEBHOOK_PYTEST)
-
-test-local-webhook-joined: _ensure-local-webhook-ready
-	$(WEBHOOK_PYTEST) -k "test_member_joined_webhook[local]"
-
-test-local-webhook-approved: _ensure-local-webhook-ready
-	$(WEBHOOK_PYTEST) -k "test_member_approved_webhook[local]"
-
-test-local-webhook-approved-admin: _ensure-local-webhook-ready
-	$(WEBHOOK_APPROVED_ADMIN_PYTEST)
-
-test-local-webhook-rejected: _ensure-local-webhook-ready
-	$(WEBHOOK_PYTEST) -k "test_member_rejected_webhook[local]"
-
-test-local-webhook-removed: _ensure-local-webhook-ready
-	$(WEBHOOK_PYTEST) -k "test_member_removed_webhook[local]"
-
-test-local-webhook-left: _ensure-local-webhook-ready
-	$(WEBHOOK_PYTEST) -k "test_member_left_webhook[local]"
-
-test-local-webhook-firestore: _ensure-local-webhook-ready
-	$(WEBHOOK_FIRESTORE_PYTEST)
-
-test-dev-webhook:
-	$(WEBHOOK_PYTEST_DEV)
-
-test-dev-webhook-joined:
-	$(WEBHOOK_PYTEST_DEV) -k "test_member_joined_webhook[dev]"
-
-test-dev-webhook-approved:
-	$(WEBHOOK_PYTEST_DEV) -k "test_member_approved_webhook[dev]"
-
-test-dev-webhook-approved-admin:
-	$(WEBHOOK_APPROVED_ADMIN_PYTEST_DEV)
-
-test-dev-webhook-rejected:
-	$(WEBHOOK_PYTEST_DEV) -k "test_member_rejected_webhook[dev]"
-
-test-dev-webhook-removed:
-	$(WEBHOOK_PYTEST_DEV) -k "test_member_removed_webhook[dev]"
-
-test-dev-webhook-left:
-	$(WEBHOOK_PYTEST_DEV) -k "test_member_left_webhook[dev]"
-
-test-prod-webhook:
-	$(WEBHOOK_PYTEST_PROD)
-
-test-prod-webhook-joined:
-	$(WEBHOOK_PYTEST_PROD) -k "test_member_joined_webhook[prod]"
-
-test-prod-webhook-approved:
-	$(WEBHOOK_PYTEST_PROD) -k "test_member_approved_webhook[prod]"
-
-test-prod-webhook-approved-admin:
-	$(WEBHOOK_APPROVED_ADMIN_PYTEST_PROD)
-
-test-prod-webhook-rejected:
-	$(WEBHOOK_PYTEST_PROD) -k "test_member_rejected_webhook[prod]"
-
-test-prod-webhook-removed:
-	$(WEBHOOK_PYTEST_PROD) -k "test_member_removed_webhook[prod]"
-
-test-prod-webhook-left:
-	$(WEBHOOK_PYTEST_PROD) -k "test_member_left_webhook[prod]"
+test-webhook:
+	@if [ "$(WEBHOOK_HOST)" = "local" ] || [ "$(WEBHOOK_TYPE)" = "firestore-dedupe" ]; then $(MAKE) _ensure-local-webhook-ready; fi
+	@case "$(WEBHOOK_TYPE)" in \
+		all) \
+			if [ "$(WEBHOOK_HOST)" = "local" ]; then \
+				$(WEBHOOK_ENV_local) $(WEBHOOK_PYTEST_BASE); \
+			else \
+				$(WEBHOOK_ENV_$(WEBHOOK_HOST)) $(WEBHOOK_PYTEST_BASE) -k "$(WEBHOOK_HOST)"; \
+			fi ;; \
+		joined) $(WEBHOOK_ENV_$(WEBHOOK_HOST)) $(WEBHOOK_PYTEST_BASE) -k "test_member_joined_webhook[$(WEBHOOK_HOST)]" ;; \
+		approved) $(WEBHOOK_ENV_$(WEBHOOK_HOST)) $(WEBHOOK_PYTEST_BASE) -k "test_member_approved_webhook[$(WEBHOOK_HOST)]" ;; \
+		approved-admin) $(WEBHOOK_ENV_$(WEBHOOK_HOST)) $(WEBHOOK_FIRESTORE_PROJECT_$(WEBHOOK_HOST)) $(WEBHOOK_PYTEST_BASE) -k "test_member_approved_webhook_completes_admin_notification[$(WEBHOOK_HOST)]" ;; \
+		rejected) $(WEBHOOK_ENV_$(WEBHOOK_HOST)) $(WEBHOOK_PYTEST_BASE) -k "test_member_rejected_webhook[$(WEBHOOK_HOST)]" ;; \
+		removed) $(WEBHOOK_ENV_$(WEBHOOK_HOST)) $(WEBHOOK_PYTEST_BASE) -k "test_member_removed_webhook[$(WEBHOOK_HOST)]" ;; \
+		left) $(WEBHOOK_ENV_$(WEBHOOK_HOST)) $(WEBHOOK_PYTEST_BASE) -k "test_member_left_webhook[$(WEBHOOK_HOST)]" ;; \
+		firestore-dedupe) $(WEBHOOK_ENV_local) $(WEBHOOK_FIRESTORE_PROJECT_local) $(WEBHOOK_PYTEST_BASE) -k "test_member_joined_webhook_dedupes_concurrent_duplicate_event_ids[local]" ;; \
+		*) echo "Unknown WEBHOOK_TYPE: $(WEBHOOK_TYPE). Use: all, joined, approved, approved-admin, rejected, removed, left, firestore-dedupe"; exit 1 ;; \
+	esac
 
 run-local-container: build-image
 	@if [ ! -f "$(LOCAL_CONTAINER_ENV_FILE)" ]; then \

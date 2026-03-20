@@ -224,7 +224,7 @@ def test_users_webhook_rejects_invalid_json(client: TestClient) -> None:
     assert response.status_code == 422
 
 
-def test_users_webhook_rejects_joined_payload_without_questions(
+def test_users_webhook_accepts_joined_payload_without_questions(
     client: TestClient,
 ) -> None:
     payload = _build_joined_payload()
@@ -232,7 +232,7 @@ def test_users_webhook_rejects_joined_payload_without_questions(
 
     response = client.post("/webhooks/keyai/users", json=payload)
 
-    assert response.status_code == 422
+    assert response.status_code == 202
 
 
 def test_service_builds_joined_whatsapp_request() -> None:
@@ -505,9 +505,7 @@ def test_admin_notification_sentences_are_printed(
     )
 
     member_sentence = keyai_webhooks.build_new_member_admin_member_sentence(payload)
-    company_sentence = keyai_webhooks.build_new_member_admin_company_sentence(
-        payload
-    )
+    company_sentence = keyai_webhooks.build_new_member_admin_company_sentence(payload)
 
     print("Member sentence:", member_sentence)
     print("Company sentence:", company_sentence)
