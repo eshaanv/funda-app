@@ -41,6 +41,7 @@ class MemberPayload(BaseModel):
 class MemberQuestionPayload(BaseModel):
     question: str
     answer: str
+    semantic_key: str | None = None
 
 
 class BaseMemberStatusPayload(BaseModel):

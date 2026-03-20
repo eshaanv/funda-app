@@ -45,18 +45,22 @@ def _build_joined_payload() -> dict[str, object]:
             {
                 "answer": "RJ",
                 "question": "What is your first name?",
+                "semantic_key": "first_name",
             },
             {
                 "answer": "https://www.linkedin.com/in/rohan-jain",
                 "question": "What is your linked-in url?",
+                "semantic_key": "linkedin_url",
             },
             {
                 "answer": "Acme AI",
                 "question": "What is your company name?",
+                "semantic_key": "company_name",
             },
             {
                 "answer": "Seed",
                 "question": "What is the funding stage?",
+                "semantic_key": "funding_stage",
             },
         ],
         "occurredAt": "2026-03-13T15:05:32.436Z",
@@ -73,9 +77,6 @@ def _build_approved_payload() -> dict[str, object]:
             "fullName": "Rohan Jain",
             "lastName": "Jain",
             "firstName": "Rohan",
-            "companyName": None,
-            "linkedinUrl": None,
-            "companyStage": None,
         },
         "status": {
             "new": "APPROVED",
@@ -303,8 +304,16 @@ def test_service_builds_attio_sync_request_with_job_title_and_company_website() 
     payload_data = _build_joined_payload()
     payload_data["questions"].extend(
         [
-            {"question": "What is your job title?", "answer": "CEO"},
-            {"question": "What is your company website domain?", "answer": "acme.ai"},
+            {
+                "question": "What is your job title?",
+                "answer": "CEO",
+                "semantic_key": "job_title",
+            },
+            {
+                "question": "What is your company website domain?",
+                "answer": "acme.ai",
+                "semantic_key": "company_website_domain",
+            },
         ]
     )
     payload = MemberJoinedWebhookPayload.model_validate(payload_data)

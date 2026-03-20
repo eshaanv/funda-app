@@ -38,6 +38,14 @@ def _configure_request_logging(app: FastAPI) -> None:
 
     async def log_requests(request: Request, call_next):
         started_at = time.perf_counter()
+        if request.url.path == "/webhooks/keyai/users":
+            raw_body = await request.body()
+            logger.info(
+                "Incoming request payload: method=%s path=%s body=%s",
+                request.method,
+                request.url.path,
+                raw_body.decode("utf-8", errors="replace"),
+            )
 
         try:
             response = await call_next(request)

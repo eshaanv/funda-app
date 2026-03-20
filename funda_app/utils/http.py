@@ -39,17 +39,18 @@ def request_json(
         urllib.error.URLError: When the request cannot be completed.
     """
     request_body = None
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Accept": "application/json",
+    }
     if method.upper() != "GET":
         request_body = json.dumps(payload).encode("utf-8")
+        headers["Content-Type"] = "application/json"
     http_request = request.Request(
         url=url,
         data=request_body,
         method=method,
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        },
+        headers=headers,
     )
 
     for attempt in range(1, retry_attempts + 1):
