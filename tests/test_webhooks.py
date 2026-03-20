@@ -45,18 +45,22 @@ def _build_joined_payload() -> dict[str, object]:
             {
                 "answer": "RJ",
                 "question": "What is your first name?",
+                "semantic_key": "first_name",
             },
             {
                 "answer": "https://www.linkedin.com/in/rohan-jain",
                 "question": "What is your linked-in url?",
+                "semantic_key": "linkedin_url",
             },
             {
                 "answer": "Acme AI",
                 "question": "What is your company name?",
+                "semantic_key": "company_name",
             },
             {
                 "answer": "Seed",
                 "question": "What is the funding stage?",
+                "semantic_key": "funding_stage",
             },
         ],
         "occurredAt": "2026-03-13T15:05:32.436Z",

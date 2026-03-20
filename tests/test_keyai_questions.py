@@ -11,6 +11,7 @@ def test_get_question_answer_returns_answer_for_linkedin_url() -> None:
         MemberQuestionPayload(
             question="What is your linked-in url?",
             answer="https://www.linkedin.com/in/jane",
+            semantic_key="linkedin_url",
         ),
     ]
     assert (
@@ -21,21 +22,33 @@ def test_get_question_answer_returns_answer_for_linkedin_url() -> None:
 
 def test_get_question_answer_returns_answer_for_company_name() -> None:
     questions = [
-        MemberQuestionPayload(question="What is your company name?", answer="Acme AI"),
+        MemberQuestionPayload(
+            question="What is your company name?",
+            answer="Acme AI",
+            semantic_key="company_name",
+        ),
     ]
     assert get_question_answer(questions, KeyaiQuestionField.COMPANY_NAME) == "Acme AI"
 
 
 def test_get_question_answer_returns_answer_for_funding_stage() -> None:
     questions = [
-        MemberQuestionPayload(question="What is the funding stage?", answer="Seed"),
+        MemberQuestionPayload(
+            question="What is the funding stage?",
+            answer="Seed",
+            semantic_key="funding_stage",
+        ),
     ]
     assert get_question_answer(questions, KeyaiQuestionField.FUNDING_STAGE) == "Seed"
 
 
 def test_get_question_answer_returns_answer_for_job_title() -> None:
     questions = [
-        MemberQuestionPayload(question="What is your job title?", answer="CEO"),
+        MemberQuestionPayload(
+            question="What is your job title?",
+            answer="CEO",
+            semantic_key="job_title",
+        ),
     ]
     assert get_question_answer(questions, KeyaiQuestionField.JOB_TITLE) == "CEO"
 
@@ -43,7 +56,9 @@ def test_get_question_answer_returns_answer_for_job_title() -> None:
 def test_get_question_answer_returns_answer_for_company_website_domain() -> None:
     questions = [
         MemberQuestionPayload(
-            question="What is your company website domain?", answer="acme.ai"
+            question="What is your company website domain?",
+            answer="acme.ai",
+            semantic_key="company_website_domain",
         ),
     ]
     assert (
@@ -58,13 +73,34 @@ def test_get_question_answer_returns_none_when_questions_is_none() -> None:
 
 def test_get_question_answer_returns_none_when_no_matching_question() -> None:
     questions = [
-        MemberQuestionPayload(question="What is your favourite colour?", answer="blue"),
+        MemberQuestionPayload(
+            question="What is your favourite colour?",
+            answer="blue",
+            semantic_key="favorite_color",
+        ),
     ]
     assert get_question_answer(questions, KeyaiQuestionField.JOB_TITLE) is None
 
 
 def test_get_question_answer_trims_and_returns_empty_as_none() -> None:
     questions = [
-        MemberQuestionPayload(question="What is your job title?", answer="   "),
+        MemberQuestionPayload(
+            question="What is your job title?",
+            answer="   ",
+            semantic_key="job_title",
+        ),
     ]
     assert get_question_answer(questions, KeyaiQuestionField.JOB_TITLE) is None
+
+
+def test_get_question_answer_falls_back_to_question_text_when_semantic_key_missing() -> None:
+    questions = [
+        MemberQuestionPayload(
+            question="What is your linked-in url?",
+            answer="https://www.linkedin.com/in/jane",
+        ),
+    ]
+    assert (
+        get_question_answer(questions, KeyaiQuestionField.LINKEDIN_URL)
+        == "https://www.linkedin.com/in/jane"
+    )

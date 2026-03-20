@@ -55,6 +55,11 @@ def get_question_answer(
     if questions is None:
         return None
 
+    for item in questions:
+        if item.semantic_key == field.value:
+            value = (item.answer or "").strip()
+            return value if value else None
+
     patterns = _KEYAI_QUESTION_PATTERNS.get(field, [])
     for item in questions:
         lowered_question = item.question.lower()

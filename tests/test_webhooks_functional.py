@@ -115,18 +115,36 @@ def _build_joined_payload(event_id: str) -> dict[str, object]:
         "version": 1,
         "community": _common_community(),
         "questions": [
-            {"question": "Linkedin URL?", "answer": "linkedin.com/in/eshaan-vipani/"},
+            {
+                "question": "Linkedin URL?",
+                "answer": "linkedin.com/in/eshaan-vipani/",
+                "semantic_key": "linkedin_url",
+            },
             {
                 "question": "WhatsApp Phone Number? (Needed to add you into our WhatsApp community)",
                 "answer": "9256400611",
+                "semantic_key": "whatsapp_phone_number",
             },
-            {"question": "Company Name?", "answer": "Wells Fargo"},
+            {
+                "question": "Company Name?",
+                "answer": "Wells Fargo",
+                "semantic_key": "company_name",
+            },
             {
                 "question": "Company Website Domain? (e.g. www.newco.com)",
                 "answer": "https://www.wellsfargo.com/",
+                "semantic_key": "company_website_domain",
             },
-            {"question": "Job Title?", "answer": "Software Engineer"},
-            {"question": "Funding Stage?", "answer": "Prefer not to say"},
+            {
+                "question": "Job Title?",
+                "answer": "Software Engineer",
+                "semantic_key": "job_title",
+            },
+            {
+                "question": "Funding Stage?",
+                "answer": "Prefer not to say",
+                "semantic_key": "funding_stage",
+            },
             {"question": "What describes you best?", "answer": "Service Provider"},
         ],
         "occurredAt": "2026-03-13T15:05:32.436Z",
