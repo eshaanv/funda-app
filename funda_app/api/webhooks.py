@@ -25,30 +25,36 @@ async def post_keyai_webhook(
     ),
 ) -> WebhookAcceptedResponse:
     logger.info(
-        "Received Key.ai webhook: event=%s member_id=%s event_id=%s community_id=%s",
-        payload.event,
-        payload.member.id,
-        payload.eventId,
-        payload.community.id,
+        "Received Key.ai webhook",
+        extra={
+            "event": payload.event,
+            "member_id": payload.member.id,
+            "event_id": payload.eventId,
+            "community_id": payload.community.id,
+        },
     )
     background_tasks.add_task(
         webhook_service.dispatch_keyai_member_tasks,
         payload,
     )
     logger.info(
-        "Queued member background tasks: member_id=%s event=%s event_id=%s status_transition=%s->%s",
-        payload.member.id,
-        payload.event,
-        payload.eventId,
-        payload.status.old,
-        payload.status.new,
+        "Queued member background tasks",
+        extra={
+            "member_id": payload.member.id,
+            "event": payload.event,
+            "event_id": payload.eventId,
+            "status_old": payload.status.old,
+            "status_new": payload.status.new,
+        },
     )
     response = webhook_service.handle_keyai_webhook(payload=payload)
     logger.info(
-        "Accepted Key.ai webhook: event=%s member_id=%s event_id=%s status=%s",
-        response.event,
-        response.user_id,
-        payload.eventId,
-        response.status,
+        "Accepted Key.ai webhook",
+        extra={
+            "event": response.event,
+            "member_id": response.user_id,
+            "event_id": payload.eventId,
+            "status": response.status,
+        },
     )
     return response

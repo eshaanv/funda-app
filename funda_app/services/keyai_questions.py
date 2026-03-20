@@ -10,8 +10,8 @@ from funda_app.schemas.webhooks import MemberQuestionPayload
 class KeyaiQuestionField(StrEnum):
     """Fixed Key.ai application question fields."""
 
-    LINKEDIN_URL = "linkedin_url"
-    WHATSAPP_PHONE_NUMBER = "whatsapp_phone_number"
+    LINKEDIN_URL = "linked_in_url"
+    WHATSAPP_PHONE_NUMBER = "whatsapp_number"
     COMPANY_NAME = "company_name"
     COMPANY_WEBSITE_DOMAIN = "company_website_domain"
     JOB_TITLE = "job_title"
@@ -46,12 +46,9 @@ def get_question_answer(
 
 
 def get_linkedin_url(
-    member_linkedin_url: str | None,
     questions: list[MemberQuestionPayload] | None,
 ) -> str | None:
-    """Returns LinkedIn URL from member field or questions, trimmed, or None."""
-    if member_linkedin_url and member_linkedin_url.strip():
-        return member_linkedin_url.strip()
+    """Returns LinkedIn URL from questions, trimmed, or None."""
     value = get_question_answer(questions, KeyaiQuestionField.LINKEDIN_URL)
     if value is None or not value.strip():
         return None
@@ -59,12 +56,9 @@ def get_linkedin_url(
 
 
 def get_company_name(
-    member_company_name: str | None,
     questions: list[MemberQuestionPayload] | None,
 ) -> str | None:
-    """Returns company name from member field or questions, trimmed, or None."""
-    if member_company_name and member_company_name.strip():
-        return member_company_name.strip()
+    """Returns company name from questions, trimmed, or None."""
     value = get_question_answer(questions, KeyaiQuestionField.COMPANY_NAME)
     if value is None or not value.strip():
         return None
@@ -72,13 +66,20 @@ def get_company_name(
 
 
 def get_company_stage(
-    member_company_stage: str | None,
     questions: list[MemberQuestionPayload] | None,
 ) -> str | None:
-    """Returns company/funding stage from member field or questions, trimmed, or None."""
-    if member_company_stage and member_company_stage.strip():
-        return member_company_stage.strip()
+    """Returns company/funding stage from questions, trimmed, or None."""
     value = get_question_answer(questions, KeyaiQuestionField.FUNDING_STAGE)
+    if value is None or not value.strip():
+        return None
+    return value.strip()
+
+
+def get_whatsapp_phone_number(
+    questions: list[MemberQuestionPayload] | None,
+) -> str | None:
+    """Returns WhatsApp phone number from questions, trimmed, or None."""
+    value = get_question_answer(questions, KeyaiQuestionField.WHATSAPP_PHONE_NUMBER)
     if value is None or not value.strip():
         return None
     return value.strip()

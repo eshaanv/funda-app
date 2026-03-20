@@ -43,13 +43,10 @@ def test_member_joined_live_whatsapp_dispatch() -> None:
             "member": {
                 "id": "14b8d602-1eee-11f1-b904-0242ac14000a",
                 "email": "eshaan@example.com",
-                "phone": LIVE_RECIPIENT_PHONE,
+                "phone": "",
                 "fullName": "Eshaan Vipani",
                 "lastName": "Vipani",
                 "firstName": LIVE_TEMPLATE_FIRST_NAME,
-                "companyName": None,
-                "linkedinUrl": None,
-                "companyStage": None,
             },
             "status": {
                 "new": "PENDING",
@@ -65,7 +62,12 @@ def test_member_joined_live_whatsapp_dispatch() -> None:
                 {
                     "answer": "Eshaan",
                     "question": "What is your first name?",
-                }
+                },
+                {
+                    "answer": LIVE_RECIPIENT_PHONE,
+                    "question": "What is your whatsapp number?",
+                    "semantic_key": "whatsapp_number",
+                },
             ],
             "occurredAt": "2026-03-14T15:05:32.436Z",
         }
