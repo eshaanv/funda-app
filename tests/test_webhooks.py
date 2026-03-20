@@ -73,9 +73,6 @@ def _build_approved_payload() -> dict[str, object]:
             "fullName": "Rohan Jain",
             "lastName": "Jain",
             "firstName": "Rohan",
-            "companyName": None,
-            "linkedinUrl": None,
-            "companyStage": None,
         },
         "status": {
             "new": "APPROVED",
