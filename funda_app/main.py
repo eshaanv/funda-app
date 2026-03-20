@@ -38,34 +38,45 @@ def _configure_request_logging(app: FastAPI) -> None:
 
     async def log_requests(request: Request, call_next):
         started_at = time.perf_counter()
+        raw_body_text: str | None = None
         if request.url.path == "/webhooks/keyai/users":
             raw_body = await request.body()
-            logger.info(
-                "Incoming request payload: method=%s path=%s body=%s",
-                request.method,
-                request.url.path,
-                raw_body.decode("utf-8", errors="replace"),
-            )
+            raw_body_text = raw_body.decode("utf-8", errors="replace")
 
         try:
             response = await call_next(request)
         except Exception:
             duration_ms = (time.perf_counter() - started_at) * 1000
             logger.exception(
-                "Request failed: method=%s path=%s duration_ms=%.2f",
-                request.method,
-                request.url.path,
-                duration_ms,
+                "Request failed",
+                extra={
+                    "method": request.method,
+                    "path": request.url.path,
+                    "duration_ms": round(duration_ms, 2),
+                    "body": raw_body_text,
+                },
             )
             raise
 
         duration_ms = (time.perf_counter() - started_at) * 1000
+        if raw_body_text is not None and response.status_code >= 400:
+            logger.warning(
+                "Webhook request failed validation",
+                extra={
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": response.status_code,
+                    "body": raw_body_text,
+                },
+            )
         logger.info(
-            "Request completed: method=%s path=%s status_code=%s duration_ms=%.2f",
-            request.method,
-            request.url.path,
-            response.status_code,
-            duration_ms,
+            "Request completed",
+            extra={
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "duration_ms": round(duration_ms, 2),
+            },
         )
         return response
 
