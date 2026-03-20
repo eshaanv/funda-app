@@ -141,7 +141,11 @@ def _build_joined_payload(event_id: str) -> dict[str, object]:
                 "answer": "Prefer not to say",
                 "semantic_key": "funding_stage",
             },
-            {"question": "What describes you best?", "answer": "Service Provider"},
+            {
+                "question": "What describes you best?",
+                "answer": "Service Provider",
+                "semantic_key": "member_type",
+            },
         ],
         "occurredAt": "2026-03-13T15:05:32.436Z",
     }
