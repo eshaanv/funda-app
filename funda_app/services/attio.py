@@ -6,6 +6,7 @@ from funda_app.schemas.crm import (
     ATTIO_SCHEMA,
     AttioCompanySyncPayload,
     AttioLifecycleSyncRequest,
+    AttioMemberContext,
     AttioSyncResult,
 )
 from funda_app.app_settings import AppSettings, get_app_settings
@@ -61,6 +62,56 @@ def sync_attio_member(
         status="synced",
         person_record_id=person_record_id,
         company_record_id=company_record_id,
+        lifecycle_entry_id=lifecycle_entry_id,
+    )
+
+
+def sync_attio_lifecycle_only(
+    sync_request: AttioLifecycleSyncRequest,
+    settings: AppSettings | None = None,
+) -> AttioSyncResult:
+    """
+    Syncs only the lifecycle event for an existing Key.ai member in Attio.
+
+    Args:
+        sync_request (AttioLifecycleSyncRequest): Normalized lifecycle sync request.
+        settings (AppSettings | None, optional): Runtime settings override.
+            Defaults to None.
+
+    Returns:
+        AttioSyncResult: IDs for the existing person and synchronized lifecycle.
+
+    Raises:
+        ValueError: If the Attio member record cannot be found.
+        urllib.error.HTTPError: If the Attio API rejects the request.
+        urllib.error.URLError: If the Attio API is unreachable.
+    """
+    runtime_settings = settings or get_app_settings()
+    _validate_attio_settings(runtime_settings)
+
+    person_record = _find_person_record_by_member_id(
+        member_id=sync_request.person.keyai_member_id,
+        settings=runtime_settings,
+    )
+    if person_record is None:
+        raise ValueError(
+            "Attio lifecycle sync requires an existing person record for the member"
+        )
+
+    person_record_id = _extract_record_id_from_data(person_record.get("id"))
+    if person_record_id is None:
+        raise ValueError("Attio lifecycle sync requires a valid person record id")
+
+    lifecycle_entry_id = _assert_lifecycle_entry(
+        sync_request=sync_request,
+        person_record_id=person_record_id,
+        settings=runtime_settings,
+    )
+
+    return AttioSyncResult(
+        status="synced",
+        person_record_id=person_record_id,
+        company_record_id=_extract_company_record_id_from_person(person_record),
         lifecycle_entry_id=lifecycle_entry_id,
     )
 
@@ -134,6 +185,59 @@ def get_phone_number_for_member(
         return None
 
     return _extract_phone_number_from_person(person_record)
+
+
+def get_member_context_for_member(
+    member_id: str,
+    settings: AppSettings | None = None,
+) -> AttioMemberContext | None:
+    """
+    Returns canonical Attio member context for a Key.ai member ID.
+
+    Args:
+        member_id (str): Key.ai member ID stored on the person record.
+        settings (AppSettings | None, optional): Runtime settings override.
+            Defaults to None.
+
+    Returns:
+        AttioMemberContext | None: Stored member context when found, otherwise None.
+    """
+    runtime_settings = settings or get_app_settings()
+    _validate_attio_settings(runtime_settings)
+
+    person_record = _find_person_record_by_member_id(
+        member_id=member_id,
+        settings=runtime_settings,
+    )
+    if person_record is None:
+        return None
+
+    company_name = None
+    company_stage = None
+    company_record_id = _extract_company_record_id_from_person(person_record)
+    if company_record_id is not None:
+        company_record = request_json(
+            method="GET",
+            url=(
+                f"{runtime_settings.attio_base_url.rstrip('/')}/objects/"
+                f"{ATTIO_SCHEMA.company.object_slug}/records/{company_record_id}"
+            ),
+            payload={},
+            access_token=runtime_settings.attio_api_key or "",
+            timeout_seconds=runtime_settings.attio_timeout_seconds,
+            retry_attempts=3,
+        )
+        company_data = company_record.get("data")
+        company_name = _extract_company_name_from_record(company_data)
+        company_stage = _extract_company_stage_from_record(company_data)
+
+    return AttioMemberContext(
+        phone=_extract_phone_number_from_person(person_record),
+        linkedin_url=_extract_linkedin_url_from_person(person_record),
+        job_title=_extract_job_title_from_person(person_record),
+        company_name=company_name,
+        company_stage=company_stage,
+    )
 
 
 def get_latest_lifecycle_event_id_for_member(
@@ -648,6 +752,59 @@ def _extract_phone_number_from_person(
         phone_number = first_phone.get(key)
         if isinstance(phone_number, str) and phone_number.strip():
             return phone_number.strip()
+
+    return None
+
+
+def _extract_linkedin_url_from_person(
+    person_record: Mapping[str, object],
+) -> str | None:
+    values = person_record.get("values", {})
+    if not isinstance(values, Mapping):
+        return None
+
+    return _extract_string_value(values, ATTIO_SCHEMA.person.linkedin_attribute)
+
+
+def _extract_job_title_from_person(
+    person_record: Mapping[str, object],
+) -> str | None:
+    values = person_record.get("values", {})
+    if not isinstance(values, Mapping):
+        return None
+
+    return _extract_string_value(values, ATTIO_SCHEMA.person.job_title_attribute)
+
+
+def _extract_company_stage_from_record(
+    company_record: object,
+) -> str | None:
+    if not isinstance(company_record, Mapping):
+        return None
+
+    values = company_record.get("values", {})
+    if not isinstance(values, Mapping):
+        return None
+
+    return _extract_string_value(values, ATTIO_SCHEMA.company.stage_attribute)
+
+
+def _extract_string_value(values: Mapping[str, object], key: str) -> str | None:
+    raw_value = values.get(key)
+    if isinstance(raw_value, str) and raw_value.strip():
+        return raw_value.strip()
+
+    if isinstance(raw_value, list) and raw_value:
+        first_value = raw_value[0]
+        if isinstance(first_value, Mapping):
+            value = first_value.get("value")
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+
+    if isinstance(raw_value, Mapping):
+        value = raw_value.get("value")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
 
     return None
 

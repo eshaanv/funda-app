@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from uuid import uuid4
 
+from funda_app.schemas.crm import AttioMemberContext
 from funda_app.api import webhooks as webhooks_api
 from funda_app.schemas.idempotency import KeyAIEventProcessingState
 from funda_app.schemas.whatsapp import WhatsAppDispatchResult, WhatsAppTemplateName
@@ -248,16 +249,26 @@ def test_service_builds_joined_whatsapp_request() -> None:
     assert send_request.template_metadata == {"first_name": "Rohan"}
 
 
-def test_service_builds_approved_admin_notification_request() -> None:
+def test_service_builds_approved_admin_notification_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def fake_invoke_gemini(prompt, config=None):
         return (
             '{"individual_blurb":"Rohan is an approved\\tmember of the Funda community.",'
             '"company_blurb":"Acme AI is the company associated\\nwith this member."}'
         )
 
-    keyai_webhooks.invoke_gemini = fake_invoke_gemini
-    keyai_webhooks.get_linked_company_name_for_member = (
-        lambda member_id, settings=None: "Acme AI"
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "invoke_gemini",
+        fake_invoke_gemini,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "get_member_context_for_member",
+        lambda member_id, settings=None: AttioMemberContext(
+            company_name="Acme AI",
+        )
     )
     send_request = keyai_webhooks.build_new_member_admin_notification_request(
         payload=MemberApprovedWebhookPayload.model_validate(_build_approved_payload()),
@@ -330,6 +341,7 @@ def test_service_skips_company_sync_for_non_joined_event_without_company_questio
     payload_data = _build_approved_payload()
     payload = MemberApprovedWebhookPayload.model_validate(payload_data)
 
+    keyai_webhooks.get_member_context_for_member = lambda member_id, settings=None: None
     sync_request = keyai_webhooks.build_keyai_attio_sync_request(payload=payload)
 
     assert sync_request.company is None
@@ -470,25 +482,39 @@ def test_service_builds_attio_sync_request_from_questions_before_member_fields()
     assert sync_request.company.stage == "Seed"
 
 
-def test_service_builds_attio_sync_request_from_member_fallback_for_non_joined_event() -> (
-    None
-):
+def test_service_builds_attio_sync_request_from_attio_context_for_non_joined_event(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     payload_data = _build_approved_payload()
     payload_data["member"]["phone"] = "19998887777"
     payload_data["member"]["linkedinUrl"] = "https://www.linkedin.com/in/member-profile"
     payload_data["questions"] = []
     payload = MemberApprovedWebhookPayload.model_validate(payload_data)
 
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "get_member_context_for_member",
+        lambda member_id, settings=None: AttioMemberContext(
+            phone="+14155550123",
+            linkedin_url="https://www.linkedin.com/in/attio-profile",
+            job_title="Founder",
+            company_name="Attio Company",
+            company_stage="Series A",
+        )
+    )
     sync_request = keyai_webhooks.build_keyai_attio_sync_request(payload=payload)
 
-    assert sync_request.person.phone == "+19998887777"
-    assert (
-        sync_request.person.linkedin_url == "https://www.linkedin.com/in/member-profile"
-    )
-    assert sync_request.company is None
+    assert sync_request.person.phone == "+14155550123"
+    assert sync_request.person.linkedin_url == "https://www.linkedin.com/in/attio-profile"
+    assert sync_request.person.job_title == "Founder"
+    assert sync_request.company is not None
+    assert sync_request.company.name == "Attio Company"
+    assert sync_request.company.stage == "Series A"
 
 
-def test_service_prefers_question_fields_for_non_joined_attio_sync() -> None:
+def test_service_ignores_payload_fields_for_non_joined_attio_sync(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     payload_data = _build_approved_payload()
     payload_data["member"]["phone"] = "19998887777"
     payload_data["member"]["linkedinUrl"] = "https://www.linkedin.com/in/member-profile"
@@ -516,15 +542,24 @@ def test_service_prefers_question_fields_for_non_joined_attio_sync() -> None:
     ]
     payload = MemberApprovedWebhookPayload.model_validate(payload_data)
 
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "get_member_context_for_member",
+        lambda member_id, settings=None: AttioMemberContext(
+            phone="+18511152215",
+            linkedin_url="https://www.linkedin.com/in/attio-profile",
+            job_title="CEO",
+            company_name="Attio Company",
+            company_stage="Seed",
+        )
+    )
     sync_request = keyai_webhooks.build_keyai_attio_sync_request(payload=payload)
 
     assert sync_request.person.phone == "+18511152215"
-    assert (
-        sync_request.person.linkedin_url
-        == "https://www.linkedin.com/in/question-profile"
-    )
+    assert sync_request.person.linkedin_url == "https://www.linkedin.com/in/attio-profile"
+    assert sync_request.person.job_title == "CEO"
     assert sync_request.company is not None
-    assert sync_request.company.name == "Question Company"
+    assert sync_request.company.name == "Attio Company"
     assert sync_request.company.stage == "Seed"
     assert sync_request.company.company_website is None
 
@@ -620,8 +655,11 @@ def test_service_dispatches_approved_event_to_admin_notification(
     )
     monkeypatch.setattr(
         keyai_webhooks,
-        "get_linked_company_name_for_member",
-        lambda member_id, settings=None: "Acme AI",
+        "get_member_context_for_member",
+        lambda member_id, settings=None: AttioMemberContext(
+            phone="+18511152215",
+            company_name="Acme AI",
+        ),
     )
     monkeypatch.setattr(
         keyai_webhooks,
@@ -666,8 +704,10 @@ def test_admin_notification_sentences_are_printed(
     )
     monkeypatch.setattr(
         keyai_webhooks,
-        "get_linked_company_name_for_member",
-        lambda member_id, settings=None: "Acme AI",
+        "get_member_context_for_member",
+        lambda member_id, settings=None: AttioMemberContext(
+            company_name="Acme AI",
+        ),
     )
 
     member_sentence = keyai_webhooks.build_new_member_admin_member_sentence(payload)
@@ -686,7 +726,7 @@ def test_service_builds_company_sentence_with_fallback_when_company_missing(
 ) -> None:
     monkeypatch.setattr(
         keyai_webhooks,
-        "get_linked_company_name_for_member",
+        "get_member_context_for_member",
         lambda member_id, settings=None: None,
     )
 
@@ -702,8 +742,10 @@ def test_service_builds_company_sentence_with_gemini(
 ) -> None:
     monkeypatch.setattr(
         keyai_webhooks,
-        "get_linked_company_name_for_member",
-        lambda member_id, settings=None: "Acme AI",
+        "get_member_context_for_member",
+        lambda member_id, settings=None: AttioMemberContext(
+            company_name="Acme AI",
+        ),
     )
     monkeypatch.setattr(
         keyai_webhooks,
@@ -725,6 +767,16 @@ def test_service_builds_company_sentence_with_gemini(
 def test_service_builds_admin_notification_blurbs_with_json_gemini_response(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "get_member_context_for_member",
+        lambda member_id, settings=None: AttioMemberContext(
+            company_name="Wells Fargo",
+            linkedin_url="https://www.linkedin.com/in/eshaan-vipani",
+            company_stage="Public",
+            job_title="Software Engineer",
+        ),
+    )
     monkeypatch.setattr(
         keyai_webhooks,
         "invoke_gemini",
@@ -776,6 +828,55 @@ def test_service_dispatches_member_event_to_attio(
     assert sync_request.person.phone == "+18511152215"
     assert sync_request.company is not None
     assert sync_request.company.name == "Acme AI"
+
+
+def test_service_dispatches_non_joined_event_to_lifecycle_only_attio_sync(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_lifecycle_sync(sync_request):
+        captured["sync_request"] = sync_request
+        return type(
+            "FakeAttioResult",
+            (),
+            {
+                "person_record_id": "person-123",
+                "company_record_id": "company-123",
+                "lifecycle_entry_id": "entry-123",
+            },
+        )()
+
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "get_member_context_for_member",
+        lambda member_id, settings=None: AttioMemberContext(
+            phone="+18511152215",
+            linkedin_url="https://www.linkedin.com/in/attio-profile",
+            job_title="CEO",
+            company_name="Attio Company",
+            company_stage="Seed",
+        ),
+    )
+    monkeypatch.setattr(keyai_webhooks, "sync_attio_lifecycle_only", fake_lifecycle_sync)
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "sync_attio_member",
+        lambda sync_request: pytest.fail("non-joined events must not upsert person/company"),
+    )
+
+    keyai_webhooks.dispatch_keyai_attio_sync(
+        payload=MemberApprovedWebhookPayload.model_validate(_build_approved_payload()),
+    )
+
+    sync_request = captured["sync_request"]
+
+    assert sync_request.event == MemberWebhookEvent.MEMBER_APPROVED
+    assert sync_request.person.phone == "+18511152215"
+    assert sync_request.person.linkedin_url == "https://www.linkedin.com/in/attio-profile"
+    assert sync_request.person.job_title == "CEO"
+    assert sync_request.company is not None
+    assert sync_request.company.name == "Attio Company"
 
 
 def test_service_skips_already_claimed_member_event(

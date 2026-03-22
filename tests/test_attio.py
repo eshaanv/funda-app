@@ -279,6 +279,104 @@ def test_sync_attio_member_syncs_company_before_person_and_list_entry(
     ]
 
 
+def test_sync_attio_lifecycle_only_posts_only_query_and_list_entry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_calls: list[dict[str, object]] = []
+
+    def fake_request_json(
+        method: str,
+        url: str,
+        payload: dict[str, object],
+        access_token: str,
+        timeout_seconds: float,
+        retry_attempts: int = 1,
+    ) -> dict[str, object]:
+        captured_calls.append({"method": method, "url": url, "payload": payload})
+        if "people/records/query" in url:
+            return {
+                "data": [
+                    {
+                        "id": {"record_id": "person-record-123"},
+                        "values": {
+                            "company": [
+                                {
+                                    "target_record_id": "company-record-123",
+                                }
+                            ]
+                        },
+                    }
+                ]
+            }
+        return {"data": {"id": {"entry_id": "entry-123"}}}
+
+    monkeypatch.setattr(attio, "request_json", fake_request_json)
+
+    result = attio.sync_attio_lifecycle_only(
+        sync_request=AttioLifecycleSyncRequest(
+            event=MemberWebhookEvent.MEMBER_APPROVED,
+            event_id="event-123",
+            occurred_at=datetime(2026, 3, 14, 16, 26, 12, tzinfo=UTC),
+            community_id="community-123",
+            community_name="funda",
+            member_status=MemberStatus.APPROVED,
+            person=AttioPersonSyncPayload(
+                keyai_member_id="member-123",
+                email="eshaan@example.com",
+                full_name="Eshaan Vipani",
+                first_name="Eshaan",
+                last_name="Vipani",
+            ),
+        ),
+        settings=AppSettings(
+            whatsapp_access_token="token",
+            whatsapp_phone_number_id="1029270380269800",
+            attio_api_key_dev="attio-token",
+            attio_founder_lifecycle_list_id_dev="list-123",
+        ),
+    )
+
+    assert result.person_record_id == "person-record-123"
+    assert result.company_record_id == "company-record-123"
+    assert result.lifecycle_entry_id == "entry-123"
+    assert captured_calls == [
+        {
+            "method": "POST",
+            "url": "https://api.attio.com/v2/objects/people/records/query",
+            "payload": {
+                "filter": {
+                    "keyai_member_id": {
+                        "value": {
+                            "$eq": "member-123",
+                        }
+                    }
+                },
+                "limit": 1,
+                "offset": 0,
+            },
+        },
+        {
+            "method": "PUT",
+            "url": "https://api.attio.com/v2/lists/list-123/entries",
+            "payload": {
+                "data": {
+                    "parent_record_id": "person-record-123",
+                    "parent_object": "people",
+                    "entry_values": {
+                        "member_status": "APPROVED",
+                        "last_keyai_event": "member.approved",
+                        "last_keyai_event_id": "event-123",
+                        "last_keyai_event_at": "2026-03-14T16:26:12+00:00",
+                        "community_name": "funda",
+                        "keyai_community_id": "community-123",
+                        "approved_at": "2026-03-14T16:26:12+00:00",
+                    },
+                }
+            },
+        },
+    ]
+
+
 def test_sync_attio_member_asserts_company_by_domain_when_company_website_present(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -729,6 +827,72 @@ def test_get_phone_number_for_member_returns_none_without_phone(
     )
 
     assert phone_number is None
+
+
+def test_get_member_context_for_member_returns_person_and_company_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_calls: list[dict[str, object]] = []
+
+    def fake_request_json(
+        method: str,
+        url: str,
+        payload: dict[str, object],
+        access_token: str,
+        timeout_seconds: float,
+        retry_attempts: int = 1,
+    ) -> dict[str, object]:
+        captured_calls.append({"method": method, "url": url, "payload": payload})
+        if "people/records/query" in url:
+            return {
+                "data": [
+                    {
+                        "values": {
+                            "phone_numbers": [
+                                {
+                                    "original_phone_number": "+19256400611",
+                                }
+                            ],
+                            "linkedin": "https://www.linkedin.com/in/eshaan",
+                            "job_title": "Founder",
+                            "company": [
+                                {
+                                    "target_record_id": "company-record-123",
+                                }
+                            ],
+                        }
+                    }
+                ]
+            }
+        return {
+            "data": {
+                "values": {
+                    "name": "Acme AI",
+                    "company_stage": "Seed",
+                }
+            }
+        }
+
+    monkeypatch.setattr(attio, "request_json", fake_request_json)
+
+    member_context = attio.get_member_context_for_member(
+        member_id="member-123",
+        settings=AppSettings(
+            whatsapp_access_token="token",
+            whatsapp_phone_number_id="1029270380269800",
+            attio_api_key_dev="attio-token",
+            attio_founder_lifecycle_list_id_dev="list-123",
+        ),
+    )
+
+    assert member_context is not None
+    assert member_context.phone == "+19256400611"
+    assert member_context.linkedin_url == "https://www.linkedin.com/in/eshaan"
+    assert member_context.job_title == "Founder"
+    assert member_context.company_name == "Acme AI"
+    assert member_context.company_stage == "Seed"
+    assert captured_calls[0]["method"] == "POST"
+    assert captured_calls[1]["method"] == "GET"
 
 
 def test_get_latest_lifecycle_event_id_for_member_returns_event_id(

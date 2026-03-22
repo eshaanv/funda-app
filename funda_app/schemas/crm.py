@@ -40,6 +40,14 @@ class AttioSyncResult(BaseModel):
     company_record_id: str | None = None
 
 
+class AttioMemberContext(BaseModel):
+    phone: str | None = None
+    linkedin_url: str | None = None
+    job_title: str | None = None
+    company_name: str | None = None
+    company_stage: str | None = None
+
+
 class AttioPersonSchema(BaseModel):
     model_config = ConfigDict(frozen=True)
 
