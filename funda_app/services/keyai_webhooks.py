@@ -27,8 +27,9 @@ from funda_app.app_settings import AppSettings, get_app_settings
 from funda_app.core import sanitize_whatsapp_text
 from funda_app.utils import normalize_phone_number
 from funda_app.services.attio import (
+    get_member_context_for_member,
     get_phone_number_for_member,
-    get_linked_company_name_for_member,
+    sync_attio_lifecycle_only,
     sync_attio_member,
 )
 from funda_app.services.idempotency import (
@@ -127,6 +128,30 @@ def _resolve_company_stage(payload: BaseMemberWebhookPayload) -> str | None:
     return get_company_stage(payload.questions)
 
 
+def _get_non_joined_member_context(
+    payload: BaseMemberWebhookPayload,
+    settings: AppSettings | None = None,
+):
+    """
+    Returns canonical Attio member context for non-joined events.
+
+    Args:
+        payload (BaseMemberWebhookPayload): Validated Key.ai webhook payload.
+        settings (AppSettings | None, optional): Explicit runtime settings.
+            Defaults to None.
+
+    Returns:
+        object | None: Attio member context when available, otherwise None.
+    """
+    if payload.event == MemberWebhookEvent.MEMBER_JOINED:
+        return None
+
+    return get_member_context_for_member(
+        member_id=payload.member.id,
+        settings=settings,
+    )
+
+
 def handle_keyai_webhook(payload: MemberWebhookPayload) -> WebhookAcceptedResponse:
     """
     Handles all webhook payloads received from Key.ai.
@@ -210,6 +235,7 @@ def build_keyai_whatsapp_send_request(
 
 def build_keyai_attio_sync_request(
     payload: BaseMemberWebhookPayload,
+    settings: AppSettings | None = None,
 ) -> AttioLifecycleSyncRequest:
     """
     Builds an Attio lifecycle sync request for a validated Key.ai event.
@@ -222,10 +248,23 @@ def build_keyai_attio_sync_request(
     """
     member = payload.member
     questions = payload.questions
-    company_name = _resolve_company_name(payload)
-    company_stage = _resolve_company_stage(payload)
-    phone_number = _resolve_phone_number(payload)
-    linkedin_url = _resolve_linkedin_url(payload)
+    member_context = _get_non_joined_member_context(
+        payload=payload,
+        settings=settings,
+    )
+
+    if payload.event == MemberWebhookEvent.MEMBER_JOINED:
+        company_name = _resolve_company_name(payload)
+        company_stage = _resolve_company_stage(payload)
+        phone_number = _resolve_phone_number(payload)
+        linkedin_url = _resolve_linkedin_url(payload)
+        job_title = get_job_title(questions)
+    else:
+        company_name = member_context.company_name if member_context else None
+        company_stage = member_context.company_stage if member_context else None
+        phone_number = member_context.phone if member_context else None
+        linkedin_url = member_context.linkedin_url if member_context else None
+        job_title = member_context.job_title if member_context else None
 
     company = None
 
@@ -250,7 +289,7 @@ def build_keyai_attio_sync_request(
             last_name=member.lastName,
             phone=normalize_phone_number(phone_number),
             linkedin_url=linkedin_url,
-            job_title=get_job_title(questions),
+            job_title=job_title,
         ),
         company=company,
     )
@@ -342,7 +381,10 @@ def dispatch_keyai_attio_sync(payload: BaseMemberWebhookPayload) -> bool:
     sync_request = build_keyai_attio_sync_request(payload)
 
     try:
-        result = sync_attio_member(sync_request)
+        if payload.event == MemberWebhookEvent.MEMBER_JOINED:
+            result = sync_attio_member(sync_request)
+        else:
+            result = sync_attio_lifecycle_only(sync_request)
     except Exception as exc:
         logger.exception(
             "Attio sync failed: event=%s member_id=%s event_id=%s community_id=%s error=%s",
@@ -463,20 +505,21 @@ def build_new_member_admin_blurbs(
     Returns:
         AdminNotificationBlurbs: Structured admin notification blurbs.
     """
-    company_name = None
+    member_context = None
     try:
-        company_name = get_linked_company_name_for_member(
+        member_context = get_member_context_for_member(
             member_id=payload.member.id,
             settings=settings,
         )
     except Exception:
         logger.exception(
-            "Attio company lookup failed for admin notification: member_id=%s event_id=%s community_id=%s",
+            "Attio member context lookup failed for admin notification: member_id=%s event_id=%s community_id=%s",
             payload.member.id,
             payload.eventId,
             payload.community.id,
         )
 
+    company_name = member_context.company_name if member_context else None
     if not company_name:
         return AdminNotificationBlurbs(
             individual_blurb=sanitize_whatsapp_text(
@@ -489,12 +532,24 @@ def build_new_member_admin_blurbs(
         full_name=payload.member.fullName,
         first_name=payload.member.firstName,
         last_name=payload.member.lastName,
-        linkedin_url=payload.member.linkedinUrl or "unknown",
+        linkedin_url=(
+            member_context.linkedin_url
+            if member_context and member_context.linkedin_url is not None
+            else "unknown"
+        ),
         company_name=company_name,
-        company_stage=get_company_stage(payload.questions) or "unknown",
+        company_stage=(
+            member_context.company_stage
+            if member_context and member_context.company_stage is not None
+            else "unknown"
+        ),
         occurred_at=payload.occurredAt.isoformat(),
         company_description="unknown",
-        role=get_job_title(payload.questions) or "unknown",
+        role=(
+            member_context.job_title
+            if member_context and member_context.job_title is not None
+            else "unknown"
+        ),
     )
     response = invoke_gemini(
         prompt=prompt,

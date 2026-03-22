@@ -34,39 +34,46 @@ These fields are always used when building the Attio sync request:
 | `person.full_name` | `member.fullName` | None |
 | `person.first_name` | `member.firstName` | None |
 | `person.last_name` | `member.lastName` | None |
-| `person.job_title` | `questions[].semantic_key == "job_title"` | None |
 
-## Phone Number Rules
+## Enrichment Rules
 
-Phone number resolution now differs by consumer:
+Enrichment sourcing now differs by event type:
 
-| Consumer | Event | Primary field | Fallback | If still missing |
+| Consumer | Event | Primary source | Fallback | If still missing |
 | --- | --- | --- | --- | --- |
+| Attio person/company sync | `member.joined` | Webhook payload and `questions[]` | Event-specific payload fallback where implemented | Sync optional field as `None` |
+| Attio lifecycle sync | Non-joined events | Existing Attio person record by `member.id` | None | Attio sync fails if person record is missing |
 | Member WhatsApp dispatch | `member.joined` | `questions[].semantic_key == "whatsapp_number"` | `member.phone` | Skip WhatsApp dispatch |
-| Member WhatsApp dispatch | Non-joined events | Attio person `phone_numbers` by `member.id` | None | Skip WhatsApp dispatch |
-| Attio sync | All events | `questions[].semantic_key == "whatsapp_number"` | `member.phone` | Sync `phone=None` |
+| Member WhatsApp dispatch | Non-joined events | Attio member context by `member.id` | None | Skip WhatsApp dispatch |
+| Admin notification enrichment | `member.approved` | Attio member context by `member.id` | None | Use `"unknown"` or fixed fallback text |
 
 Important detail:
 
 - Upstream Key.ai docs say `questions[]` is included only on `member.joined`.
-- Funda now treats `member.joined` as the enrichment event for member WhatsApp
-  phone sourcing.
-- Later member WhatsApp events read the canonical phone number from Attio using
-  the stored `keyai_member_id`, with no payload fallback.
+- Funda now treats `member.joined` as the enrichment event.
+- Later events read canonical enrichment fields from Attio using the stored
+  `keyai_member_id`, with no webhook fallback.
+- Later events write only the lifecycle entry in Attio; they do not upsert the
+  person or company records.
 
-## LinkedIn And Company Rules
+## Joined Event Enrichment Fields
 
-| Consumer | Event | Primary field | Fallback |
-| --- | --- | --- | --- |
-| Attio `person.linkedin_url` | All events | `questions[].semantic_key == "linked_in_url"` | `member.linkedinUrl` |
-| Attio `company.name` | All events | `questions[].semantic_key == "company_name"` | None |
-| Attio `company.stage` | All events | `questions[].semantic_key == "funding_stage"` | None |
+For `member.joined`, Funda still builds the initial enriched profile from the
+webhook payload:
+
+| Output | Primary field | Fallback |
+| --- | --- | --- |
+| `person.phone` | `questions[].semantic_key == "whatsapp_number"` | `member.phone` |
+| `person.linkedin_url` | `questions[].semantic_key == "linked_in_url"` | `member.linkedinUrl` |
+| `person.job_title` | `questions[].semantic_key == "job_title"` | None |
+| `company.name` | `questions[].semantic_key == "company_name"` | None |
+| `company.stage` | `questions[].semantic_key == "funding_stage"` | None |
+
 Important detail:
 
-- Funda builds an Attio company payload for any event only when
-  `questions[].company_name` is present.
-- Company fields do not fall back to the `member` object because those fields
-  are not part of the confirmed webhook payload shape.
+- Funda builds an Attio company payload only when a company name resolves.
+- Non-joined events no longer rebuild these optional fields from the sparse
+  webhook payload.
 
 ## Event By Event
 
@@ -78,8 +85,10 @@ Important detail:
 | --- | --- | --- | --- |
 | `person.phone` | `questions[].semantic_key == "whatsapp_number"` | `member.phone` | |
 | `person.linkedin_url` | `questions[].semantic_key == "linked_in_url"` | `member.linkedinUrl` | |
+| `person.job_title` | `questions[].semantic_key == "job_title"` | None | |
 | `company.name` | `questions[].semantic_key == "company_name"` | None | Company payload is built when a name resolves |
 | `company.stage` | `questions[].semantic_key == "funding_stage"` | None | Included only if company payload is built |
+| Lifecycle entry | Event payload status/timestamps | None | Writes lifecycle after person/company upsert |
 The shared fields listed above are also used.
 
 ### Member WhatsApp
@@ -98,12 +107,15 @@ Not used for this event.
 
 ### Attio sync
 
-| Output | Primary payload field | Fallback | Notes |
+| Output | Primary Attio field | Fallback | Notes |
 | --- | --- | --- | --- |
-| `person.phone` | `questions[].semantic_key == "whatsapp_number"` | `member.phone` | |
-| `person.linkedin_url` | `questions[].semantic_key == "linked_in_url"` | `member.linkedinUrl` | |
-| `company.name` | `questions[].semantic_key == "company_name"` | None | Company payload is built when a name resolves |
-| `company.stage` | `questions[].semantic_key == "funding_stage"` | None | Included only if company payload is built |
+| Existing person lookup | Attio person by `member.id` | None | Required before writing lifecycle |
+| `person.phone` | Attio person `phone_numbers` by `member.id` | None | Read-only enrichment |
+| `person.linkedin_url` | Attio person `linkedin` by `member.id` | None | Read-only enrichment |
+| `person.job_title` | Attio person `job_title` by `member.id` | None | Read-only enrichment |
+| `company.name` | Linked Attio company `name` by `member.id` | None | Read-only enrichment |
+| `company.stage` | Linked Attio company `company_stage` by `member.id` | None | Read-only enrichment |
+| Lifecycle entry | Event payload status/timestamps | None | Only Attio write for non-joined events |
 
 The shared fields listed above are also used.
 
@@ -123,12 +135,13 @@ This runs only for `member.approved`.
 | --- | --- | --- | --- |
 | Admin recipient phone | Runtime setting `new_member_admin_phone` | None | If missing, skip admin notification |
 | `full_name` template param | `member.fullName` | None | |
-| Company lookup member ID | `member.id` | None | Used to look up linked company in Attio |
+| Member context lookup key | `member.id` | None | Used to load canonical Attio member context |
 | Prompt `first_name` | `member.firstName` | None | |
 | Prompt `last_name` | `member.lastName` | None | |
-| Prompt `linkedin_url` | `member.linkedinUrl` | `"unknown"` | |
-| Prompt `company_stage` | `questions[].semantic_key == "funding_stage"` | `"unknown"` | |
-| Prompt `role` | `questions[].semantic_key == "job_title"` | `"unknown"` | |
+| Prompt `linkedin_url` | Attio person `linkedin` by `member.id` | `"unknown"` | |
+| Prompt `company_name` | Linked Attio company `name` by `member.id` | None | Missing company triggers fixed fallback notification |
+| Prompt `company_stage` | Linked Attio company `company_stage` by `member.id` | `"unknown"` | |
+| Prompt `role` | Attio person `job_title` by `member.id` | `"unknown"` | |
 
 Additional fallback behavior for admin notification:
 
@@ -143,12 +156,15 @@ Additional fallback behavior for admin notification:
 
 ### Attio sync
 
-| Output | Primary payload field | Fallback | Notes |
+| Output | Primary Attio field | Fallback | Notes |
 | --- | --- | --- | --- |
-| `person.phone` | `questions[].semantic_key == "whatsapp_number"` | `member.phone` | |
-| `person.linkedin_url` | `questions[].semantic_key == "linked_in_url"` | `member.linkedinUrl` | |
-| `company.name` | `questions[].semantic_key == "company_name"` | None | Company payload is built when a name resolves |
-| `company.stage` | `questions[].semantic_key == "funding_stage"` | None | Included only if company payload is built |
+| Existing person lookup | Attio person by `member.id` | None | Required before writing lifecycle |
+| `person.phone` | Attio person `phone_numbers` by `member.id` | None | Read-only enrichment |
+| `person.linkedin_url` | Attio person `linkedin` by `member.id` | None | Read-only enrichment |
+| `person.job_title` | Attio person `job_title` by `member.id` | None | Read-only enrichment |
+| `company.name` | Linked Attio company `name` by `member.id` | None | Read-only enrichment |
+| `company.stage` | Linked Attio company `company_stage` by `member.id` | None | Read-only enrichment |
+| Lifecycle entry | Event payload status/timestamps | None | Only Attio write for non-joined events |
 
 The shared fields listed above are also used.
 
@@ -168,12 +184,15 @@ Not used for this event.
 
 ### Attio sync
 
-| Output | Primary payload field | Fallback | Notes |
+| Output | Primary Attio field | Fallback | Notes |
 | --- | --- | --- | --- |
-| `person.phone` | `questions[].semantic_key == "whatsapp_number"` | `member.phone` | |
-| `person.linkedin_url` | `questions[].semantic_key == "linked_in_url"` | `member.linkedinUrl` | |
-| `company.name` | `questions[].semantic_key == "company_name"` | None | Company payload is built when a name resolves |
-| `company.stage` | `questions[].semantic_key == "funding_stage"` | None | Included only if company payload is built |
+| Existing person lookup | Attio person by `member.id` | None | Required before writing lifecycle |
+| `person.phone` | Attio person `phone_numbers` by `member.id` | None | Read-only enrichment |
+| `person.linkedin_url` | Attio person `linkedin` by `member.id` | None | Read-only enrichment |
+| `person.job_title` | Attio person `job_title` by `member.id` | None | Read-only enrichment |
+| `company.name` | Linked Attio company `name` by `member.id` | None | Read-only enrichment |
+| `company.stage` | Linked Attio company `company_stage` by `member.id` | None | Read-only enrichment |
+| Lifecycle entry | Event payload status/timestamps | None | Only Attio write for non-joined events |
 
 The shared fields listed above are also used.
 
@@ -190,12 +209,15 @@ Not used for this event.
 
 ### Attio sync
 
-| Output | Primary payload field | Fallback | Notes |
+| Output | Primary Attio field | Fallback | Notes |
 | --- | --- | --- | --- |
-| `person.phone` | `questions[].semantic_key == "whatsapp_number"` | `member.phone` | |
-| `person.linkedin_url` | `questions[].semantic_key == "linked_in_url"` | `member.linkedinUrl` | |
-| `company.name` | `questions[].semantic_key == "company_name"` | None | Company payload is built when a name resolves |
-| `company.stage` | `questions[].semantic_key == "funding_stage"` | None | Included only if company payload is built |
+| Existing person lookup | Attio person by `member.id` | None | Required before writing lifecycle |
+| `person.phone` | Attio person `phone_numbers` by `member.id` | None | Read-only enrichment |
+| `person.linkedin_url` | Attio person `linkedin` by `member.id` | None | Read-only enrichment |
+| `person.job_title` | Attio person `job_title` by `member.id` | None | Read-only enrichment |
+| `company.name` | Linked Attio company `name` by `member.id` | None | Read-only enrichment |
+| `company.stage` | Linked Attio company `company_stage` by `member.id` | None | Read-only enrichment |
+| Lifecycle entry | Event payload status/timestamps | None | Only Attio write for non-joined events |
 
 The shared fields listed above are also used.
 
