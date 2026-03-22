@@ -108,6 +108,34 @@ def get_linked_company_name_for_member(
     return _extract_company_name_from_record(company_record.get("data"))
 
 
+def get_phone_number_for_member(
+    member_id: str,
+    settings: AppSettings | None = None,
+) -> str | None:
+    """
+    Returns the stored Attio phone number for a Key.ai member ID.
+
+    Args:
+        member_id (str): Key.ai member ID stored on the person record.
+        settings (AppSettings | None, optional): Runtime settings override.
+            Defaults to None.
+
+    Returns:
+        str | None: Stored phone number when found, otherwise None.
+    """
+    runtime_settings = settings or get_app_settings()
+    _validate_attio_settings(runtime_settings)
+
+    person_record = _find_person_record_by_member_id(
+        member_id=member_id,
+        settings=runtime_settings,
+    )
+    if person_record is None:
+        return None
+
+    return _extract_phone_number_from_person(person_record)
+
+
 def get_latest_lifecycle_event_id_for_member(
     member_id: str,
     settings: AppSettings | None = None,
@@ -597,6 +625,29 @@ def _extract_company_name_from_record(
             value = first_value.get("value")
             if isinstance(value, str) and value.strip():
                 return value.strip()
+
+    return None
+
+
+def _extract_phone_number_from_person(
+    person_record: Mapping[str, object],
+) -> str | None:
+    values = person_record.get("values", {})
+    if not isinstance(values, Mapping):
+        return None
+
+    phone_values = values.get(ATTIO_SCHEMA.person.phone_attribute, [])
+    if not isinstance(phone_values, list) or not phone_values:
+        return None
+
+    first_phone = phone_values[0]
+    if not isinstance(first_phone, Mapping):
+        return None
+
+    for key in ("original_phone_number", "phone_number", "value"):
+        phone_number = first_phone.get(key)
+        if isinstance(phone_number, str) and phone_number.strip():
+            return phone_number.strip()
 
     return None
 

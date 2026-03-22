@@ -348,71 +348,75 @@ def test_service_skips_company_sync_for_non_joined_event_without_company_questio
         ),
     ],
 )
-def test_service_builds_non_joined_whatsapp_dispatch_request(
+def test_service_builds_non_joined_whatsapp_dispatch_request_from_attio(
     payload: BaseMemberWebhookPayload,
     expected_template_name: WhatsAppTemplateName,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "get_phone_number_for_member",
+        lambda member_id, settings=None: "+18511152215",
+    )
+
     send_request = keyai_webhooks.build_keyai_whatsapp_send_request(payload=payload)
 
     assert send_request is not None
-    assert send_request.to == "8511152215"
+    assert send_request.to == "+18511152215"
     assert send_request.template_name == expected_template_name
     assert send_request.template_metadata == {"first_name": "Rohan"}
 
 
 @pytest.mark.parametrize(
-    ("payload", "expected_template_name"),
+    "payload",
     [
-        (
-            MemberApprovedWebhookPayload.model_validate(
-                {
-                    **_build_approved_payload(),
-                    "member": {
-                        **_build_approved_payload()["member"],
-                        "phone": "",
-                    },
-                    "questions": [
-                        {
-                            "answer": "8511152215",
-                            "question": "What is your whatsapp number?",
-                            "semantic_key": "whatsapp_number",
-                        }
-                    ],
-                }
-            ),
-            WhatsAppTemplateName.FUNDA_MEMBERSHIP_APPROVED,
+        MemberApprovedWebhookPayload.model_validate(
+            {
+                **_build_approved_payload(),
+                "member": {
+                    **_build_approved_payload()["member"],
+                    "phone": "",
+                },
+                "questions": [
+                    {
+                        "answer": "8511152215",
+                        "question": "What is your whatsapp number?",
+                        "semantic_key": "whatsapp_number",
+                    }
+                ],
+            }
         ),
-        (
-            MemberRejectedWebhookPayload.model_validate(
-                {
-                    **_build_rejected_payload(),
-                    "member": {
-                        **_build_rejected_payload()["member"],
-                        "phone": "",
-                    },
-                    "questions": [
-                        {
-                            "answer": "8511152215",
-                            "question": "What is your whatsapp number?",
-                            "semantic_key": "whatsapp_number",
-                        }
-                    ],
-                }
-            ),
-            WhatsAppTemplateName.FUNDA_MEMBERSHIP_REJECTED,
+        MemberRejectedWebhookPayload.model_validate(
+            {
+                **_build_rejected_payload(),
+                "member": {
+                    **_build_rejected_payload()["member"],
+                    "phone": "",
+                },
+                "questions": [
+                    {
+                        "answer": "8511152215",
+                        "question": "What is your whatsapp number?",
+                        "semantic_key": "whatsapp_number",
+                    }
+                ],
+            }
         ),
     ],
 )
-def test_service_builds_non_joined_whatsapp_dispatch_request_from_question_fallback(
+def test_service_skips_non_joined_whatsapp_dispatch_without_attio_phone(
     payload: BaseMemberWebhookPayload,
-    expected_template_name: WhatsAppTemplateName,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "get_phone_number_for_member",
+        lambda member_id, settings=None: None,
+    )
+
     send_request = keyai_webhooks.build_keyai_whatsapp_send_request(payload=payload)
 
-    assert send_request is not None
-    assert send_request.to == "8511152215"
-    assert send_request.template_name == expected_template_name
-    assert send_request.template_metadata == {"first_name": "Rohan"}
+    assert send_request is None
 
 
 def test_service_prefers_question_phone_for_joined_whatsapp_dispatch() -> None:
@@ -426,7 +430,7 @@ def test_service_prefers_question_phone_for_joined_whatsapp_dispatch() -> None:
     assert send_request.to == "8511152215"
 
 
-def test_service_prefers_question_phone_for_non_joined_whatsapp_dispatch() -> None:
+def test_service_ignores_payload_phone_for_non_joined_whatsapp_dispatch() -> None:
     payload_data = _build_approved_payload()
     payload_data["member"]["phone"] = "19998887777"
     payload_data["questions"] = [
@@ -438,10 +442,13 @@ def test_service_prefers_question_phone_for_non_joined_whatsapp_dispatch() -> No
     ]
     payload = MemberApprovedWebhookPayload.model_validate(payload_data)
 
+    keyai_webhooks.get_phone_number_for_member = lambda member_id, settings=None: (
+        "+14155550123"
+    )
     send_request = keyai_webhooks.build_keyai_whatsapp_send_request(payload=payload)
 
     assert send_request is not None
-    assert send_request.to == "8511152215"
+    assert send_request.to == "+14155550123"
 
 
 def test_service_builds_attio_sync_request_from_questions_before_member_fields() -> (

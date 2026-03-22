@@ -27,6 +27,7 @@ from funda_app.app_settings import AppSettings, get_app_settings
 from funda_app.core import sanitize_whatsapp_text
 from funda_app.utils import normalize_phone_number
 from funda_app.services.attio import (
+    get_phone_number_for_member,
     get_linked_company_name_for_member,
     sync_attio_member,
 )
@@ -61,6 +62,30 @@ def _resolve_phone_number(payload: BaseMemberWebhookPayload) -> str | None:
         str | None: Resolved phone number, or None when unavailable.
     """
     return get_whatsapp_phone_number(payload.questions) or payload.member.phone
+
+
+def _resolve_whatsapp_phone_number(
+    payload: BaseMemberWebhookPayload,
+    settings: AppSettings | None = None,
+) -> str | None:
+    """
+    Resolves the WhatsApp destination phone number for a webhook event.
+
+    Args:
+        payload (BaseMemberWebhookPayload): Validated Key.ai webhook payload.
+        settings (AppSettings | None, optional): Explicit runtime settings.
+            Defaults to None.
+
+    Returns:
+        str | None: Resolved WhatsApp destination number, or None when unavailable.
+    """
+    if payload.event == MemberWebhookEvent.MEMBER_JOINED:
+        return _resolve_phone_number(payload)
+
+    return get_phone_number_for_member(
+        member_id=payload.member.id,
+        settings=settings,
+    )
 
 
 def _resolve_linkedin_url(payload: BaseMemberWebhookPayload) -> str | None:
@@ -133,12 +158,15 @@ def _process_event(payload: BaseMemberWebhookPayload) -> WebhookAcceptedResponse
 
 def build_keyai_whatsapp_send_request(
     payload: BaseMemberWebhookPayload,
+    settings: AppSettings | None = None,
 ) -> WhatsAppTemplateSendRequest | None:
     """
     Builds a WhatsApp template send request for a supported Key.ai event.
 
     Args:
         payload (BaseMemberWebhookPayload): Validated Key.ai webhook payload.
+        settings (AppSettings | None, optional): Explicit runtime settings.
+            Defaults to None.
 
     Returns:
         WhatsAppTemplateSendRequest | None: Template send request for supported
@@ -156,7 +184,10 @@ def build_keyai_whatsapp_send_request(
         )
         return None
 
-    phone_number = _resolve_phone_number(payload) or ""
+    phone_number = _resolve_whatsapp_phone_number(
+        payload=payload,
+        settings=settings,
+    ) or ""
 
     if not (phone_number or "").strip():
         logger.info(

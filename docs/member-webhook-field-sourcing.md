@@ -38,19 +38,21 @@ These fields are always used when building the Attio sync request:
 
 ## Phone Number Rules
 
-Phone number resolution now uses the same precedence across all events:
+Phone number resolution now differs by consumer:
 
-| Consumer | Primary field | Fallback | If still missing |
-| --- | --- | --- | --- |
-| Member WhatsApp dispatch | `questions[].semantic_key == "whatsapp_number"` | `member.phone` | Skip WhatsApp dispatch |
-| Attio sync | `questions[].semantic_key == "whatsapp_number"` | `member.phone` | Sync `phone=None` |
+| Consumer | Event | Primary field | Fallback | If still missing |
+| --- | --- | --- | --- | --- |
+| Member WhatsApp dispatch | `member.joined` | `questions[].semantic_key == "whatsapp_number"` | `member.phone` | Skip WhatsApp dispatch |
+| Member WhatsApp dispatch | Non-joined events | Attio person `phone_numbers` by `member.id` | None | Skip WhatsApp dispatch |
+| Attio sync | All events | `questions[].semantic_key == "whatsapp_number"` | `member.phone` | Sync `phone=None` |
 
 Important detail:
 
 - Upstream Key.ai docs say `questions[]` is included only on `member.joined`.
-- Funda still checks `questions[].whatsapp_number` first on every event.
-- If a non-joined payload does not include `questions[]`, Funda falls back to
-  `member.phone`.
+- Funda now treats `member.joined` as the enrichment event for member WhatsApp
+  phone sourcing.
+- Later member WhatsApp events read the canonical phone number from Attio using
+  the stored `keyai_member_id`, with no payload fallback.
 
 ## LinkedIn And Company Rules
 
@@ -59,16 +61,12 @@ Important detail:
 | Attio `person.linkedin_url` | All events | `questions[].semantic_key == "linked_in_url"` | `member.linkedinUrl` |
 | Attio `company.name` | All events | `questions[].semantic_key == "company_name"` | None |
 | Attio `company.stage` | All events | `questions[].semantic_key == "funding_stage"` | None |
-| Attio `company.company_website` | All events | `questions[].semantic_key == "company_website_domain"` | None |
-
 Important detail:
 
 - Funda builds an Attio company payload for any event only when
   `questions[].company_name` is present.
 - Company fields do not fall back to the `member` object because those fields
   are not part of the confirmed webhook payload shape.
-- `company_website_domain` still has no `member`-field fallback because there is
-  no equivalent field on `member`.
 
 ## Event By Event
 
@@ -82,8 +80,6 @@ Important detail:
 | `person.linkedin_url` | `questions[].semantic_key == "linked_in_url"` | `member.linkedinUrl` | |
 | `company.name` | `questions[].semantic_key == "company_name"` | None | Company payload is built when a name resolves |
 | `company.stage` | `questions[].semantic_key == "funding_stage"` | None | Included only if company payload is built |
-| `company.company_website` | `questions[].semantic_key == "company_website_domain"` | None | Included only if company payload is built |
-
 The shared fields listed above are also used.
 
 ### Member WhatsApp
@@ -108,7 +104,6 @@ Not used for this event.
 | `person.linkedin_url` | `questions[].semantic_key == "linked_in_url"` | `member.linkedinUrl` | |
 | `company.name` | `questions[].semantic_key == "company_name"` | None | Company payload is built when a name resolves |
 | `company.stage` | `questions[].semantic_key == "funding_stage"` | None | Included only if company payload is built |
-| `company.company_website` | `questions[].semantic_key == "company_website_domain"` | None | Included only if company payload is built |
 
 The shared fields listed above are also used.
 
@@ -116,7 +111,7 @@ The shared fields listed above are also used.
 
 | Output | Primary payload field | Fallback | If missing |
 | --- | --- | --- | --- |
-| `to` | `questions[].semantic_key == "whatsapp_number"` | `member.phone` | Skip dispatch |
+| `to` | Attio person `phone_numbers` by `member.id` | None | Skip dispatch |
 | `template_name` | `event == member.approved` | None | Uses `funda_membership_approved1` |
 | `first_name` template param | `member.firstName` | None | |
 
@@ -133,7 +128,6 @@ This runs only for `member.approved`.
 | Prompt `last_name` | `member.lastName` | None | |
 | Prompt `linkedin_url` | `member.linkedinUrl` | `"unknown"` | |
 | Prompt `company_stage` | `questions[].semantic_key == "funding_stage"` | `"unknown"` | |
-| Prompt `company_website` | `questions[].semantic_key == "company_website_domain"` | `"unknown"` | |
 | Prompt `role` | `questions[].semantic_key == "job_title"` | `"unknown"` | |
 
 Additional fallback behavior for admin notification:
@@ -155,7 +149,6 @@ Additional fallback behavior for admin notification:
 | `person.linkedin_url` | `questions[].semantic_key == "linked_in_url"` | `member.linkedinUrl` | |
 | `company.name` | `questions[].semantic_key == "company_name"` | None | Company payload is built when a name resolves |
 | `company.stage` | `questions[].semantic_key == "funding_stage"` | None | Included only if company payload is built |
-| `company.company_website` | `questions[].semantic_key == "company_website_domain"` | None | Included only if company payload is built |
 
 The shared fields listed above are also used.
 
@@ -163,7 +156,7 @@ The shared fields listed above are also used.
 
 | Output | Primary payload field | Fallback | If missing |
 | --- | --- | --- | --- |
-| `to` | `questions[].semantic_key == "whatsapp_number"` | `member.phone` | Skip dispatch |
+| `to` | Attio person `phone_numbers` by `member.id` | None | Skip dispatch |
 | `template_name` | `event == member.rejected` | None | Uses `funda_membership_rejected` |
 | `first_name` template param | `member.firstName` | None | |
 
@@ -181,7 +174,6 @@ Not used for this event.
 | `person.linkedin_url` | `questions[].semantic_key == "linked_in_url"` | `member.linkedinUrl` | |
 | `company.name` | `questions[].semantic_key == "company_name"` | None | Company payload is built when a name resolves |
 | `company.stage` | `questions[].semantic_key == "funding_stage"` | None | Included only if company payload is built |
-| `company.company_website` | `questions[].semantic_key == "company_website_domain"` | None | Included only if company payload is built |
 
 The shared fields listed above are also used.
 
@@ -204,7 +196,6 @@ Not used for this event.
 | `person.linkedin_url` | `questions[].semantic_key == "linked_in_url"` | `member.linkedinUrl` | |
 | `company.name` | `questions[].semantic_key == "company_name"` | None | Company payload is built when a name resolves |
 | `company.stage` | `questions[].semantic_key == "funding_stage"` | None | Included only if company payload is built |
-| `company.company_website` | `questions[].semantic_key == "company_website_domain"` | None | Included only if company payload is built |
 
 The shared fields listed above are also used.
 
