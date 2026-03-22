@@ -672,6 +672,65 @@ def test_get_linked_company_name_for_member_returns_none_without_company(
     assert company_name is None
 
 
+def test_get_phone_number_for_member_returns_phone_number(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        attio,
+        "request_json",
+        lambda method, url, payload, access_token, timeout_seconds, retry_attempts=1: {
+            "data": [
+                {
+                    "values": {
+                        "phone_numbers": [
+                            {
+                                "original_phone_number": "+19256400611",
+                                "country_code": "US",
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+    )
+
+    phone_number = attio.get_phone_number_for_member(
+        member_id="member-123",
+        settings=AppSettings(
+            whatsapp_access_token="token",
+            whatsapp_phone_number_id="1029270380269800",
+            attio_api_key_dev="attio-token",
+            attio_founder_lifecycle_list_id_dev="list-123",
+        ),
+    )
+
+    assert phone_number == "+19256400611"
+
+
+def test_get_phone_number_for_member_returns_none_without_phone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        attio,
+        "request_json",
+        lambda method, url, payload, access_token, timeout_seconds, retry_attempts=1: {
+            "data": [{"values": {}}]
+        },
+    )
+
+    phone_number = attio.get_phone_number_for_member(
+        member_id="member-123",
+        settings=AppSettings(
+            whatsapp_access_token="token",
+            whatsapp_phone_number_id="1029270380269800",
+            attio_api_key_dev="attio-token",
+            attio_founder_lifecycle_list_id_dev="list-123",
+        ),
+    )
+
+    assert phone_number is None
+
+
 def test_get_latest_lifecycle_event_id_for_member_returns_event_id(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

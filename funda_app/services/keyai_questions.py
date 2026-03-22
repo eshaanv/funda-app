@@ -13,7 +13,6 @@ class KeyaiQuestionField(StrEnum):
     LINKEDIN_URL = "linked_in_url"
     WHATSAPP_PHONE_NUMBER = "whatsapp_number"
     COMPANY_NAME = "company_name"
-    COMPANY_WEBSITE_DOMAIN = "company_website_domain"
     JOB_TITLE = "job_title"
     FUNDING_STAGE = "funding_stage"
 
@@ -91,10 +90,3 @@ def get_job_title(
 ) -> str | None:
     """Returns job title from questions, or None."""
     return get_question_answer(questions, KeyaiQuestionField.JOB_TITLE)
-
-
-def get_company_website_domain(
-    questions: list[MemberQuestionPayload] | None,
-) -> str | None:
-    """Returns company website domain from questions, or None."""
-    return get_question_answer(questions, KeyaiQuestionField.COMPANY_WEBSITE_DOMAIN)
