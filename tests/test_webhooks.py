@@ -304,7 +304,7 @@ def test_service_builds_attio_sync_request_from_joined_questions() -> None:
     assert sync_request.company.company_website is None
 
 
-def test_service_builds_attio_sync_request_with_job_title_and_company_website() -> None:
+def test_service_builds_attio_sync_request_with_job_title() -> None:
     payload_data = _build_joined_payload()
     payload_data["questions"].extend(
         [
@@ -312,11 +312,6 @@ def test_service_builds_attio_sync_request_with_job_title_and_company_website() 
                 "question": "What is your job title?",
                 "answer": "CEO",
                 "semantic_key": "job_title",
-            },
-            {
-                "question": "What is your company website domain?",
-                "answer": "acme.ai",
-                "semantic_key": "company_website_domain",
             },
         ]
     )
@@ -326,10 +321,12 @@ def test_service_builds_attio_sync_request_with_job_title_and_company_website() 
 
     assert sync_request.person.job_title == "CEO"
     assert sync_request.company is not None
-    assert sync_request.company.company_website == "acme.ai"
+    assert sync_request.company.company_website is None
 
 
-def test_service_skips_company_sync_for_non_joined_event_without_company_questions() -> None:
+def test_service_skips_company_sync_for_non_joined_event_without_company_questions() -> (
+    None
+):
     payload_data = _build_approved_payload()
     payload = MemberApprovedWebhookPayload.model_validate(payload_data)
 
@@ -447,10 +444,14 @@ def test_service_prefers_question_phone_for_non_joined_whatsapp_dispatch() -> No
     assert send_request.to == "8511152215"
 
 
-def test_service_builds_attio_sync_request_from_questions_before_member_fields() -> None:
+def test_service_builds_attio_sync_request_from_questions_before_member_fields() -> (
+    None
+):
     payload_data = _build_joined_payload()
     payload_data["member"]["phone"] = "19998887777"
-    payload_data["member"]["linkedinUrl"] = "https://www.linkedin.com/in/member-fallback"
+    payload_data["member"]["linkedinUrl"] = (
+        "https://www.linkedin.com/in/member-fallback"
+    )
     payload = MemberJoinedWebhookPayload.model_validate(payload_data)
 
     sync_request = keyai_webhooks.build_keyai_attio_sync_request(payload=payload)
@@ -462,7 +463,9 @@ def test_service_builds_attio_sync_request_from_questions_before_member_fields()
     assert sync_request.company.stage == "Seed"
 
 
-def test_service_builds_attio_sync_request_from_member_fallback_for_non_joined_event() -> None:
+def test_service_builds_attio_sync_request_from_member_fallback_for_non_joined_event() -> (
+    None
+):
     payload_data = _build_approved_payload()
     payload_data["member"]["phone"] = "19998887777"
     payload_data["member"]["linkedinUrl"] = "https://www.linkedin.com/in/member-profile"
@@ -472,7 +475,9 @@ def test_service_builds_attio_sync_request_from_member_fallback_for_non_joined_e
     sync_request = keyai_webhooks.build_keyai_attio_sync_request(payload=payload)
 
     assert sync_request.person.phone == "+19998887777"
-    assert sync_request.person.linkedin_url == "https://www.linkedin.com/in/member-profile"
+    assert (
+        sync_request.person.linkedin_url == "https://www.linkedin.com/in/member-profile"
+    )
     assert sync_request.company is None
 
 
@@ -501,22 +506,20 @@ def test_service_prefers_question_fields_for_non_joined_attio_sync() -> None:
             "question": "What is the funding stage?",
             "semantic_key": "funding_stage",
         },
-        {
-            "answer": "question.ai",
-            "question": "What is your company website domain?",
-            "semantic_key": "company_website_domain",
-        },
     ]
     payload = MemberApprovedWebhookPayload.model_validate(payload_data)
 
     sync_request = keyai_webhooks.build_keyai_attio_sync_request(payload=payload)
 
     assert sync_request.person.phone == "+18511152215"
-    assert sync_request.person.linkedin_url == "https://www.linkedin.com/in/question-profile"
+    assert (
+        sync_request.person.linkedin_url
+        == "https://www.linkedin.com/in/question-profile"
+    )
     assert sync_request.company is not None
     assert sync_request.company.name == "Question Company"
     assert sync_request.company.stage == "Seed"
-    assert sync_request.company.company_website == "question.ai"
+    assert sync_request.company.company_website is None
 
 
 def test_service_dispatches_joined_event_to_whatsapp(
@@ -1095,12 +1098,13 @@ def test_service_marks_approved_member_event_failed_on_admin_notification_error(
     assert order == ["admin_notification_failed"]
 
 
-def test_joined_webhook_model_requires_questions() -> None:
+def test_joined_webhook_model_allows_missing_questions() -> None:
     payload = _build_joined_payload()
     payload.pop("questions")
 
-    with pytest.raises(ValidationError):
-        MemberJoinedWebhookPayload.model_validate(payload)
+    webhook_payload = MemberJoinedWebhookPayload.model_validate(payload)
+
+    assert webhook_payload.questions is None
 
 
 def test_approved_webhook_model_rejects_invalid_status_transition() -> None:

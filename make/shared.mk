@@ -10,7 +10,6 @@ BUILD_IMAGE_FLAGS ?= --pull --no-cache
 
 format:
 	uv run ruff format $(TARGET)
-	terraform -chdir=infra fmt -recursive
 
 lint:
 	uv run ruff check --fix $(TARGET)

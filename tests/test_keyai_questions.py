@@ -52,20 +52,6 @@ def test_get_question_answer_returns_answer_for_job_title() -> None:
     assert get_question_answer(questions, KeyaiQuestionField.JOB_TITLE) == "CEO"
 
 
-def test_get_question_answer_returns_answer_for_company_website_domain() -> None:
-    questions = [
-        MemberQuestionPayload(
-            question="What is your company website domain?",
-            answer="acme.ai",
-            semantic_key="company_website_domain",
-        ),
-    ]
-    assert (
-        get_question_answer(questions, KeyaiQuestionField.COMPANY_WEBSITE_DOMAIN)
-        == "acme.ai"
-    )
-
-
 def test_get_question_answer_returns_none_when_questions_is_none() -> None:
     assert get_question_answer(None, KeyaiQuestionField.LINKEDIN_URL) is None
 

@@ -41,7 +41,6 @@ from funda_app.services.idempotency import (
 from funda_app.services.keyai_questions import (
     get_company_name,
     get_company_stage,
-    get_company_website_domain,
     get_job_title,
     get_linkedin_url,
     get_whatsapp_phone_number,
@@ -194,7 +193,6 @@ def build_keyai_attio_sync_request(
     questions = payload.questions
     company_name = _resolve_company_name(payload)
     company_stage = _resolve_company_stage(payload)
-    company_website = get_company_website_domain(questions)
     phone_number = _resolve_phone_number(payload)
     linkedin_url = _resolve_linkedin_url(payload)
 
@@ -204,7 +202,6 @@ def build_keyai_attio_sync_request(
         company = AttioCompanySyncPayload(
             name=company_name,
             stage=company_stage,
-            company_website=company_website,
         )
 
     return AttioLifecycleSyncRequest(
@@ -464,7 +461,6 @@ def build_new_member_admin_blurbs(
         linkedin_url=payload.member.linkedinUrl or "unknown",
         company_name=company_name,
         company_stage=get_company_stage(payload.questions) or "unknown",
-        company_website=get_company_website_domain(payload.questions) or "unknown",
         occurred_at=payload.occurredAt.isoformat(),
         company_description="unknown",
         role=get_job_title(payload.questions) or "unknown",
