@@ -130,6 +130,12 @@ def _build_joined_payload(event_id: str) -> dict[str, object]:
                 "semantic_key": "company_name",
             },
             {
+                "question": "Company Website Domain? (e.g. www.newco.com)",
+                "answer": "https://www.wellsfargo.com/",
+                "type": "website_url",
+                "semantic_key": "company_website_domain",
+            },
+            {
                 "question": "Job Title?",
                 "answer": "Software Engineer",
                 "type": "short_text",

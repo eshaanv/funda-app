@@ -869,6 +869,7 @@ def test_get_member_context_for_member_returns_person_and_company_fields(
                 "values": {
                     "name": "Acme AI",
                     "company_stage": "Seed",
+                    "company_website": "https://acme.ai",
                 }
             }
         }
@@ -891,6 +892,7 @@ def test_get_member_context_for_member_returns_person_and_company_fields(
     assert member_context.job_title == "Founder"
     assert member_context.company_name == "Acme AI"
     assert member_context.company_stage == "Seed"
+    assert member_context.company_website == "https://acme.ai"
     assert captured_calls[0]["method"] == "POST"
     assert captured_calls[1]["method"] == "GET"
 

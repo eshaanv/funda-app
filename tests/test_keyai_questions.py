@@ -4,6 +4,7 @@ from pydantic import ValidationError
 from funda_app.schemas.webhooks import MemberQuestionPayload
 from funda_app.services.keyai_questions import (
     KeyaiQuestionField,
+    get_company_website,
     get_question_answer,
 )
 
@@ -33,6 +34,18 @@ def test_get_question_answer_returns_answer_for_company_name() -> None:
         ),
     ]
     assert get_question_answer(questions, KeyaiQuestionField.COMPANY_NAME) == "Acme AI"
+
+
+def test_get_company_website_returns_answer() -> None:
+    questions = [
+        MemberQuestionPayload(
+            question="What is your company website?",
+            answer="https://www.ontra.ai/",
+            type="website_url",
+            semantic_key="company_website_domain",
+        ),
+    ]
+    assert get_company_website(questions) == "https://www.ontra.ai/"
 
 
 def test_get_question_answer_returns_answer_for_funding_stage() -> None:

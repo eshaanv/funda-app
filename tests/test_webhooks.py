@@ -66,6 +66,12 @@ def _build_joined_payload() -> dict[str, object]:
                 "semantic_key": "company_name",
             },
             {
+                "answer": "https://acme.ai",
+                "question": "What is your company website?",
+                "type": "website_url",
+                "semantic_key": "company_website_domain",
+            },
+            {
                 "answer": ["Seed"],
                 "question": "What is the funding stage?",
                 "type": "multiple_choice_single",
@@ -316,8 +322,8 @@ def test_service_builds_attio_sync_request_from_joined_questions() -> None:
     assert sync_request.company is not None
     assert sync_request.company.name == "Acme AI"
     assert sync_request.company.stage == "Seed"
+    assert sync_request.company.company_website == "https://acme.ai"
     assert sync_request.person.job_title is None
-    assert sync_request.company.company_website is None
 
 
 def test_service_builds_attio_sync_request_with_job_title() -> None:
@@ -338,7 +344,7 @@ def test_service_builds_attio_sync_request_with_job_title() -> None:
 
     assert sync_request.person.job_title == "CEO"
     assert sync_request.company is not None
-    assert sync_request.company.company_website is None
+    assert sync_request.company.company_website == "https://acme.ai"
 
 
 def test_service_skips_company_sync_for_non_joined_event_without_company_questions() -> (
@@ -547,6 +553,12 @@ def test_service_ignores_payload_fields_for_non_joined_attio_sync(
             "question": "What is your company name?",
             "type": "short_text",
             "semantic_key": "company_name",
+        },
+        {
+            "answer": "https://question-company.example",
+            "question": "What is your company website?",
+            "type": "website_url",
+            "semantic_key": "company_website_domain",
         },
         {
             "answer": ["Seed"],
@@ -791,6 +803,7 @@ def test_service_builds_admin_notification_blurbs_with_json_gemini_response(
             company_name="Wells Fargo",
             linkedin_url="https://www.linkedin.com/in/eshaan-vipani",
             company_stage="Public",
+            company_website="https://www.wellsfargo.com/",
             job_title="Software Engineer",
         ),
     )
@@ -814,6 +827,45 @@ def test_service_builds_admin_notification_blurbs_with_json_gemini_response(
     assert blurbs.individual_blurb == "Eshaan works at Wells Fargo."
     assert blurbs.company_blurb == "Wells Fargo is a fairly solid public company."
     assert blurbs.citations == ["https://www.wellsfargo.com/"]
+
+
+def test_service_includes_company_website_in_admin_notification_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "get_member_context_for_member",
+        lambda member_id, settings=None: AttioMemberContext(
+            company_name="Wells Fargo",
+            linkedin_url="https://www.linkedin.com/in/eshaan-vipani",
+            company_stage="Public",
+            company_website="https://www.wellsfargo.com/",
+            job_title="Software Engineer",
+        ),
+    )
+
+    def fake_invoke_gemini(prompt, config=None):
+        captured["prompt"] = prompt
+        return (
+            '{"individual_blurb":"Eshaan works at Wells Fargo.",'
+            '"company_blurb":"Wells Fargo is a public financial services company.",'
+            '"citations":["https://www.wellsfargo.com/"]}'
+        )
+
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "invoke_gemini",
+        fake_invoke_gemini,
+    )
+
+    keyai_webhooks.build_new_member_admin_blurbs(
+        payload=MemberApprovedWebhookPayload.model_validate(_build_approved_payload()),
+    )
+
+    prompt = captured["prompt"]
+    assert "Company website: https://www.wellsfargo.com/" in prompt
 
 
 def test_service_dispatches_member_event_to_attio(

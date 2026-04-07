@@ -49,6 +49,7 @@ Member details:
 Company details:
 - Company name: {company_name}
 - Company stage: {company_stage}
+- Company website: {company_website}
 - Company description: {company_description}
 - Role/title: {role}
 """.strip()

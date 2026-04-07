@@ -13,6 +13,7 @@ class KeyaiQuestionField(StrEnum):
     LINKEDIN_URL = "linked_in_url"
     WHATSAPP_PHONE_NUMBER = "whatsapp_number"
     COMPANY_NAME = "company_name"
+    COMPANY_WEBSITE = "company_website_domain"
     JOB_TITLE = "job_title"
     FUNDING_STAGE = "funding_stage"
 
@@ -89,6 +90,16 @@ def get_company_stage(
 ) -> str | None:
     """Returns company/funding stage from questions, trimmed, or None."""
     value = get_question_answer(questions, KeyaiQuestionField.FUNDING_STAGE)
+    if value is None or not value.strip():
+        return None
+    return value.strip()
+
+
+def get_company_website(
+    questions: list[MemberQuestionPayload] | None,
+) -> str | None:
+    """Returns company website from questions, trimmed, or None."""
+    value = get_question_answer(questions, KeyaiQuestionField.COMPANY_WEBSITE)
     if value is None or not value.strip():
         return None
     return value.strip()
