@@ -39,10 +39,29 @@ def get_question_answer(
 
     for item in questions:
         if item.semantic_key == field.value:
-            value = (item.answer or "").strip()
-            return value if value else None
+            return _normalize_question_answer(item)
 
     return None
+
+
+def _normalize_question_answer(item: MemberQuestionPayload) -> str | None:
+    """
+    Normalizes a question answer into a trimmed string for downstream use.
+
+    Args:
+        item: Question payload to normalize.
+
+    Returns:
+        A trimmed string value, or None when the answer is empty.
+    """
+    if isinstance(item.answer, str):
+        value = item.answer.strip()
+        return value if value else None
+
+    values = [value.strip() for value in item.answer if value.strip()]
+    if not values:
+        return None
+    return ", ".join(values)
 
 
 def get_linkedin_url(

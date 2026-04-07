@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Literal, TypeAlias
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class MemberWebhookEvent(StrEnum):
@@ -36,10 +36,55 @@ class MemberPayload(BaseModel):
     linkedinUrl: str | None = None
 
 
+class MemberQuestionType(StrEnum):
+    MULTIPLE_CHOICE_SINGLE = "multiple_choice_single"
+    MULTIPLE_CHOICE_MULTI = "multiple_choice_multi"
+    SHORT_TEXT = "short_text"
+    LONG_TEXT = "long_text"
+    EMAIL = "email"
+    NUMBER = "number"
+    DATE = "date"
+    PHONE_NUMBER = "phone_number"
+    WEBSITE_URL = "website_url"
+    COUNTRY = "country"
+
+
+QuestionAnswer: TypeAlias = str | list[str]
+
+
 class MemberQuestionPayload(BaseModel):
+    type: MemberQuestionType
     question: str
-    answer: str
+    answer: QuestionAnswer
     semantic_key: str
+
+    @model_validator(mode="after")
+    def validate_answer_shape(self) -> "MemberQuestionPayload":
+        """
+        Validates that the answer shape matches the question type.
+
+        Returns:
+            MemberQuestionPayload: The validated question payload.
+
+        Raises:
+            ValueError: If the answer shape does not match the question type.
+        """
+        list_types = {
+            MemberQuestionType.MULTIPLE_CHOICE_SINGLE,
+            MemberQuestionType.MULTIPLE_CHOICE_MULTI,
+        }
+
+        if self.type in list_types:
+            if not isinstance(self.answer, list):
+                raise ValueError(
+                    "answer must be a string array for multiple choice question types"
+                )
+        elif not isinstance(self.answer, str):
+            raise ValueError(
+                "answer must be a string for non-multiple-choice question types"
+            )
+
+        return self
 
 
 class BaseMemberStatusPayload(BaseModel):
