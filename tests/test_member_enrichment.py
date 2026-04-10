@@ -1,6 +1,7 @@
 import pytest
 from uuid import uuid4
 
+from funda_app.schemas.idempotency import KeyAIEventProcessingState
 from funda_app.schemas.webhooks import MemberJoinedWebhookPayload
 from funda_app.services import keyai_webhooks
 
@@ -30,21 +31,25 @@ def _build_joined_payload() -> dict[str, object]:
             {
                 "answer": "https://www.linkedin.com/in/rohan-jain",
                 "question": "What is your linked-in url?",
+                "type": "website_url",
                 "semantic_key": "linked_in_url",
             },
             {
                 "answer": "8511152215",
                 "question": "What is your whatsapp number?",
+                "type": "phone_number",
                 "semantic_key": "whatsapp_number",
             },
             {
                 "answer": "Acme AI",
                 "question": "What is your company name?",
+                "type": "short_text",
                 "semantic_key": "company_name",
             },
             {
-                "answer": "Seed",
+                "answer": ["Seed"],
                 "question": "What is the funding stage?",
+                "type": "multiple_choice_single",
                 "semantic_key": "funding_stage",
             },
         ],
@@ -94,13 +99,36 @@ def test_dispatch_keyai_member_tasks_runs_crm_before_whatsapp(
 
     monkeypatch.setattr(
         keyai_webhooks,
+        "begin_keyai_event_processing",
+        lambda event_id, member_id, event_type: KeyAIEventProcessingState(
+            should_process=True
+        ),
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_attio_done",
+        lambda event_id: None,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_whatsapp_done",
+        lambda event_id: None,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_completed",
+        lambda event_id: None,
+    )
+
+    monkeypatch.setattr(
+        keyai_webhooks,
         "dispatch_keyai_attio_sync",
-        lambda p: order.append("crm"),
+        lambda p: order.append("crm") or True,
     )
     monkeypatch.setattr(
         keyai_webhooks,
         "dispatch_keyai_whatsapp_message",
-        lambda p: order.append("whatsapp"),
+        lambda p: order.append("whatsapp") or True,
     )
 
     keyai_webhooks.dispatch_keyai_member_tasks(payload)

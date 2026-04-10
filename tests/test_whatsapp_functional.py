@@ -62,11 +62,13 @@ def test_member_joined_live_whatsapp_dispatch() -> None:
                 {
                     "answer": "Eshaan",
                     "question": "What is your first name?",
+                    "type": "short_text",
                     "semantic_key": "first_name",
                 },
                 {
                     "answer": LIVE_RECIPIENT_PHONE,
                     "question": "What is your whatsapp number?",
+                    "type": "phone_number",
                     "semantic_key": "whatsapp_number",
                 },
             ],

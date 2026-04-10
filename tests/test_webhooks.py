@@ -44,26 +44,31 @@ def _build_joined_payload() -> dict[str, object]:
             {
                 "answer": "RJ",
                 "question": "What is your first name?",
+                "type": "short_text",
                 "semantic_key": "first_name",
             },
             {
                 "answer": "https://www.linkedin.com/in/rohan-jain",
                 "question": "What is your linked-in url?",
+                "type": "website_url",
                 "semantic_key": "linked_in_url",
             },
             {
                 "answer": "8511152215",
                 "question": "What is your whatsapp number?",
+                "type": "phone_number",
                 "semantic_key": "whatsapp_number",
             },
             {
                 "answer": "Acme AI",
                 "question": "What is your company name?",
+                "type": "short_text",
                 "semantic_key": "company_name",
             },
             {
-                "answer": "Seed",
+                "answer": ["Seed"],
                 "question": "What is the funding stage?",
+                "type": "multiple_choice_single",
                 "semantic_key": "funding_stage",
             },
         ],
@@ -268,7 +273,7 @@ def test_service_builds_approved_admin_notification_request(
         "get_member_context_for_member",
         lambda member_id, settings=None: AttioMemberContext(
             company_name="Acme AI",
-        )
+        ),
     )
     send_request = keyai_webhooks.build_new_member_admin_notification_request(
         payload=MemberApprovedWebhookPayload.model_validate(_build_approved_payload()),
@@ -322,6 +327,7 @@ def test_service_builds_attio_sync_request_with_job_title() -> None:
             {
                 "question": "What is your job title?",
                 "answer": "CEO",
+                "type": "short_text",
                 "semantic_key": "job_title",
             },
         ]
@@ -393,6 +399,7 @@ def test_service_builds_non_joined_whatsapp_dispatch_request_from_attio(
                     {
                         "answer": "8511152215",
                         "question": "What is your whatsapp number?",
+                        "type": "phone_number",
                         "semantic_key": "whatsapp_number",
                     }
                 ],
@@ -409,6 +416,7 @@ def test_service_builds_non_joined_whatsapp_dispatch_request_from_attio(
                     {
                         "answer": "8511152215",
                         "question": "What is your whatsapp number?",
+                        "type": "phone_number",
                         "semantic_key": "whatsapp_number",
                     }
                 ],
@@ -449,6 +457,7 @@ def test_service_ignores_payload_phone_for_non_joined_whatsapp_dispatch() -> Non
         {
             "answer": "8511152215",
             "question": "What is your whatsapp number?",
+            "type": "phone_number",
             "semantic_key": "whatsapp_number",
         }
     ]
@@ -500,12 +509,14 @@ def test_service_builds_attio_sync_request_from_attio_context_for_non_joined_eve
             job_title="Founder",
             company_name="Attio Company",
             company_stage="Series A",
-        )
+        ),
     )
     sync_request = keyai_webhooks.build_keyai_attio_sync_request(payload=payload)
 
     assert sync_request.person.phone == "+14155550123"
-    assert sync_request.person.linkedin_url == "https://www.linkedin.com/in/attio-profile"
+    assert (
+        sync_request.person.linkedin_url == "https://www.linkedin.com/in/attio-profile"
+    )
     assert sync_request.person.job_title == "Founder"
     assert sync_request.company is not None
     assert sync_request.company.name == "Attio Company"
@@ -522,21 +533,25 @@ def test_service_ignores_payload_fields_for_non_joined_attio_sync(
         {
             "answer": "8511152215",
             "question": "What is your whatsapp number?",
+            "type": "phone_number",
             "semantic_key": "whatsapp_number",
         },
         {
             "answer": "https://www.linkedin.com/in/question-profile",
             "question": "What is your linked-in url?",
+            "type": "website_url",
             "semantic_key": "linked_in_url",
         },
         {
             "answer": "Question Company",
             "question": "What is your company name?",
+            "type": "short_text",
             "semantic_key": "company_name",
         },
         {
-            "answer": "Seed",
+            "answer": ["Seed"],
             "question": "What is the funding stage?",
+            "type": "multiple_choice_single",
             "semantic_key": "funding_stage",
         },
     ]
@@ -551,12 +566,14 @@ def test_service_ignores_payload_fields_for_non_joined_attio_sync(
             job_title="CEO",
             company_name="Attio Company",
             company_stage="Seed",
-        )
+        ),
     )
     sync_request = keyai_webhooks.build_keyai_attio_sync_request(payload=payload)
 
     assert sync_request.person.phone == "+18511152215"
-    assert sync_request.person.linkedin_url == "https://www.linkedin.com/in/attio-profile"
+    assert (
+        sync_request.person.linkedin_url == "https://www.linkedin.com/in/attio-profile"
+    )
     assert sync_request.person.job_title == "CEO"
     assert sync_request.company is not None
     assert sync_request.company.name == "Attio Company"
@@ -858,11 +875,15 @@ def test_service_dispatches_non_joined_event_to_lifecycle_only_attio_sync(
             company_stage="Seed",
         ),
     )
-    monkeypatch.setattr(keyai_webhooks, "sync_attio_lifecycle_only", fake_lifecycle_sync)
+    monkeypatch.setattr(
+        keyai_webhooks, "sync_attio_lifecycle_only", fake_lifecycle_sync
+    )
     monkeypatch.setattr(
         keyai_webhooks,
         "sync_attio_member",
-        lambda sync_request: pytest.fail("non-joined events must not upsert person/company"),
+        lambda sync_request: pytest.fail(
+            "non-joined events must not upsert person/company"
+        ),
     )
 
     keyai_webhooks.dispatch_keyai_attio_sync(
@@ -873,7 +894,9 @@ def test_service_dispatches_non_joined_event_to_lifecycle_only_attio_sync(
 
     assert sync_request.event == MemberWebhookEvent.MEMBER_APPROVED
     assert sync_request.person.phone == "+18511152215"
-    assert sync_request.person.linkedin_url == "https://www.linkedin.com/in/attio-profile"
+    assert (
+        sync_request.person.linkedin_url == "https://www.linkedin.com/in/attio-profile"
+    )
     assert sync_request.person.job_title == "CEO"
     assert sync_request.company is not None
     assert sync_request.company.name == "Attio Company"

@@ -209,10 +209,13 @@ def build_keyai_whatsapp_send_request(
         )
         return None
 
-    phone_number = _resolve_whatsapp_phone_number(
-        payload=payload,
-        settings=settings,
-    ) or ""
+    phone_number = (
+        _resolve_whatsapp_phone_number(
+            payload=payload,
+            settings=settings,
+        )
+        or ""
+    )
 
     if not (phone_number or "").strip():
         logger.info(
