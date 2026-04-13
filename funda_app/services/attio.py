@@ -214,6 +214,7 @@ def get_member_context_for_member(
 
     company_name = None
     company_stage = None
+    company_website = None
     company_record_id = _extract_company_record_id_from_person(person_record)
     if company_record_id is not None:
         company_record = request_json(
@@ -230,6 +231,7 @@ def get_member_context_for_member(
         company_data = company_record.get("data")
         company_name = _extract_company_name_from_record(company_data)
         company_stage = _extract_company_stage_from_record(company_data)
+        company_website = _extract_company_website_from_record(company_data)
 
     return AttioMemberContext(
         phone=_extract_phone_number_from_person(person_record),
@@ -237,6 +239,7 @@ def get_member_context_for_member(
         job_title=_extract_job_title_from_person(person_record),
         company_name=company_name,
         company_stage=company_stage,
+        company_website=company_website,
     )
 
 
@@ -787,6 +790,19 @@ def _extract_company_stage_from_record(
         return None
 
     return _extract_string_value(values, ATTIO_SCHEMA.company.stage_attribute)
+
+
+def _extract_company_website_from_record(
+    company_record: object,
+) -> str | None:
+    if not isinstance(company_record, Mapping):
+        return None
+
+    values = company_record.get("values", {})
+    if not isinstance(values, Mapping):
+        return None
+
+    return _extract_string_value(values, ATTIO_SCHEMA.company.company_website_attribute)
 
 
 def _extract_string_value(values: Mapping[str, object], key: str) -> str | None:

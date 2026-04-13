@@ -43,6 +43,7 @@ from funda_app.services.idempotency import (
 from funda_app.services.keyai_questions import (
     get_company_name,
     get_company_stage,
+    get_company_website,
     get_job_title,
     get_linkedin_url,
     get_whatsapp_phone_number,
@@ -259,12 +260,14 @@ def build_keyai_attio_sync_request(
     if payload.event == MemberWebhookEvent.MEMBER_JOINED:
         company_name = _resolve_company_name(payload)
         company_stage = _resolve_company_stage(payload)
+        company_website = get_company_website(questions)
         phone_number = _resolve_phone_number(payload)
         linkedin_url = _resolve_linkedin_url(payload)
         job_title = get_job_title(questions)
     else:
         company_name = member_context.company_name if member_context else None
         company_stage = member_context.company_stage if member_context else None
+        company_website = None
         phone_number = member_context.phone if member_context else None
         linkedin_url = member_context.linkedin_url if member_context else None
         job_title = member_context.job_title if member_context else None
@@ -275,6 +278,7 @@ def build_keyai_attio_sync_request(
         company = AttioCompanySyncPayload(
             name=company_name,
             stage=company_stage,
+            company_website=company_website,
         )
 
     return AttioLifecycleSyncRequest(
@@ -544,6 +548,11 @@ def build_new_member_admin_blurbs(
         company_stage=(
             member_context.company_stage
             if member_context and member_context.company_stage is not None
+            else "unknown"
+        ),
+        company_website=(
+            member_context.company_website
+            if member_context and member_context.company_website is not None
             else "unknown"
         ),
         occurred_at=payload.occurredAt.isoformat(),
