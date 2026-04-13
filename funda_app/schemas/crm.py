@@ -46,6 +46,7 @@ class AttioMemberContext(BaseModel):
     job_title: str | None = None
     company_name: str | None = None
     company_stage: str | None = None
+    company_website: str | None = None
 
 
 class AttioPersonSchema(BaseModel):

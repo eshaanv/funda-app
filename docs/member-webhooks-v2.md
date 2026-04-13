@@ -152,6 +152,12 @@ The `type` field controls the required shape of `answer`.
       "answer": "Acme AI"
     },
     {
+      "semantic_key": "company_website_domain",
+      "question": "What is your company website?",
+      "type": "website_url",
+      "answer": "https://acme.ai"
+    },
+    {
       "semantic_key": "funding_stage",
       "question": "What is the funding stage?",
       "type": "multiple_choice_single",
