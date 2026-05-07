@@ -174,7 +174,7 @@ def get_canonical_question_answers(
         if answer is None:
             continue
 
-        field = _field_for_semantic_key(item.semantic_key)
+        field = _field_for_item(item)
         if field is not None:
             _add_answer(answers=answers, key=field.value, answer=answer)
 
@@ -183,7 +183,7 @@ def get_canonical_question_answers(
         if answer is None:
             continue
 
-        field = _field_for_keywords(item)
+        field = _field_for_item(item)
         key = field.value if field is not None else _fallback_question_key(item)
         if key not in answers:
             _add_answer(answers=answers, key=key, answer=answer)
@@ -208,7 +208,7 @@ def get_keyai_question_records(
 
     records: list[dict[str, Any]] = []
     for item in questions:
-        field = _field_for_semantic_key(item.semantic_key) or _field_for_keywords(item)
+        field = _field_for_item(item)
         records.append(
             {
                 "canonical_key": (
@@ -239,6 +239,9 @@ def _normalize_question_answer(item: MemberQuestionPayload) -> str | None:
         value = item.answer.strip()
         return value if value else None
 
+    if item.answer is None:
+        return None
+
     values = [value.strip() for value in item.answer if value.strip()]
     if not values:
         return None
@@ -252,6 +255,15 @@ def _field_for_semantic_key(semantic_key: str) -> KeyaiQuestionField | None:
             return field
 
     return None
+
+
+def _field_for_item(item: MemberQuestionPayload) -> KeyaiQuestionField | None:
+    semantic_field = _field_for_semantic_key(item.semantic_key)
+    keyword_field = _field_for_keywords(item)
+    if keyword_field is not None:
+        return keyword_field
+
+    return semantic_field
 
 
 def _field_for_keywords(item: MemberQuestionPayload) -> KeyaiQuestionField | None:
