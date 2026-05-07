@@ -26,6 +26,22 @@ def test_get_question_answer_returns_answer_for_linkedin_url() -> None:
     )
 
 
+def test_get_canonical_question_answers_stores_linkedin_url_key() -> None:
+    questions = [
+        MemberQuestionPayload(
+            question="LinkedIn URL?",
+            answer="https://www.linkedin.com/in/jane",
+            type="website_url",
+            semantic_key="linked_in_url",
+        ),
+    ]
+
+    answers = get_canonical_question_answers(questions)
+
+    assert answers["linkedin_url"] == "https://www.linkedin.com/in/jane"
+    assert "linked_in_url" not in answers
+
+
 def test_get_question_answer_returns_answer_for_company_name() -> None:
     questions = [
         MemberQuestionPayload(

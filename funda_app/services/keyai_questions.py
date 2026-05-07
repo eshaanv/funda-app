@@ -12,7 +12,7 @@ from funda_app.schemas.webhooks import MemberQuestionPayload
 class KeyaiQuestionField(StrEnum):
     """Fixed Key.ai application question fields."""
 
-    LINKEDIN_URL = "linked_in_url"
+    LINKEDIN_URL = "linkedin_url"
     WHATSAPP_PHONE_NUMBER = "whatsapp_phone_number"
     COMPANY_NAME = "company_name"
     COMPANY_WEBSITE = "company_website"
