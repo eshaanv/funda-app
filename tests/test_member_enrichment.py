@@ -111,6 +111,11 @@ def test_dispatch_keyai_member_tasks_runs_crm_before_whatsapp(
     )
     monkeypatch.setattr(
         keyai_webhooks,
+        "mark_keyai_event_firestore_customer_done",
+        lambda event_id: None,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
         "mark_keyai_event_whatsapp_done",
         lambda event_id: None,
     )
@@ -127,10 +132,15 @@ def test_dispatch_keyai_member_tasks_runs_crm_before_whatsapp(
     )
     monkeypatch.setattr(
         keyai_webhooks,
+        "dispatch_keyai_firestore_customer_sync",
+        lambda p: order.append("firestore") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
         "dispatch_keyai_whatsapp_message",
         lambda p: order.append("whatsapp") or True,
     )
 
     keyai_webhooks.dispatch_keyai_member_tasks(payload)
 
-    assert order == ["crm", "whatsapp"]
+    assert order == ["crm", "firestore", "whatsapp"]

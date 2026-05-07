@@ -31,6 +31,8 @@ class AttioLifecycleSyncRequest(BaseModel):
     member_status: MemberStatus
     person: AttioPersonSyncPayload
     company: AttioCompanySyncPayload | None = None
+    question_answers: dict[str, str] = Field(default_factory=dict)
+    keyai_questions: list[dict[str, object]] = Field(default_factory=list)
 
 
 class AttioSyncResult(BaseModel):

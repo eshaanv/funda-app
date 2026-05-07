@@ -11,6 +11,8 @@ class KeyAIEventProcessingState(BaseModel):
         should_process (bool): Whether the current worker should process the event.
         attio_done (bool, optional): Whether Attio sync already completed.
             Defaults to False.
+        firestore_customer_done (bool, optional): Whether Firestore customer sync
+            already completed. Defaults to False.
         whatsapp_done (bool, optional): Whether WhatsApp dispatch already completed.
             Defaults to False.
         admin_notification_done (bool, optional): Whether the approved-member
@@ -19,6 +21,7 @@ class KeyAIEventProcessingState(BaseModel):
 
     should_process: bool
     attio_done: bool = False
+    firestore_customer_done: bool = False
     whatsapp_done: bool = False
     admin_notification_done: bool = False
 
@@ -34,6 +37,8 @@ class KeyAIEventRecord(BaseModel):
         status (Literal["processing", "failed", "completed"]): Processing status.
         attio_done (bool, optional): Whether Attio sync completed.
             Defaults to False.
+        firestore_customer_done (bool, optional): Whether Firestore customer sync
+            completed. Defaults to False.
         whatsapp_done (bool, optional): Whether WhatsApp dispatch completed.
             Defaults to False.
         admin_notification_done (bool, optional): Whether the approved-member
@@ -45,5 +50,6 @@ class KeyAIEventRecord(BaseModel):
     event_type: str
     status: Literal["processing", "failed", "completed"]
     attio_done: bool = False
+    firestore_customer_done: bool = False
     whatsapp_done: bool = False
     admin_notification_done: bool = False
