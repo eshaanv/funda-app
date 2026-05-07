@@ -12,6 +12,7 @@ from funda_app.schemas.crm import (
     AttioLifecycleSyncRequest,
     AttioPersonSyncPayload,
 )
+from funda_app.schemas.customers import KeyAICustomerSyncRequest
 from funda_app.schemas.webhooks import (
     BaseMemberWebhookPayload,
     MemberWebhookEvent,
@@ -27,6 +28,7 @@ from funda_app.app_settings import AppSettings, get_app_settings
 from funda_app.core import sanitize_whatsapp_text
 from funda_app.utils import normalize_phone_number
 from funda_app.services.attio import (
+    AttioPersonRecordNotFoundError,
     get_member_context_for_member,
     get_phone_number_for_member,
     sync_attio_lifecycle_only,
@@ -38,17 +40,21 @@ from funda_app.services.idempotency import (
     mark_keyai_event_admin_notification_done,
     mark_keyai_event_completed,
     mark_keyai_event_failed,
+    mark_keyai_event_firestore_customer_done,
     mark_keyai_event_whatsapp_done,
 )
 from funda_app.services.keyai_questions import (
+    get_canonical_question_answers,
     get_company_name,
     get_company_stage,
     get_company_website,
     get_job_title,
+    get_keyai_question_records,
     get_linkedin_url,
     get_whatsapp_phone_number,
 )
 from funda_app.services.whatsapp import send_whatsapp_template_message
+from funda_app.services.customers import sync_keyai_customer
 
 logger = logging.getLogger(__name__)
 
@@ -299,6 +305,42 @@ def build_keyai_attio_sync_request(
             job_title=job_title,
         ),
         company=company,
+        question_answers=get_canonical_question_answers(questions),
+        keyai_questions=get_keyai_question_records(questions),
+    )
+
+
+def build_keyai_customer_sync_request(
+    payload: BaseMemberWebhookPayload,
+    settings: AppSettings | None = None,
+) -> KeyAICustomerSyncRequest:
+    """
+    Builds a Firestore customer sync request for a validated Key.ai event.
+
+    Args:
+        payload (BaseMemberWebhookPayload): Validated Key.ai webhook payload.
+        settings (AppSettings | None, optional): Explicit runtime settings.
+            Defaults to None.
+
+    Returns:
+        KeyAICustomerSyncRequest: Normalized customer sync request.
+    """
+    attio_sync_request = build_keyai_attio_sync_request(
+        payload=payload,
+        settings=settings,
+    )
+    return KeyAICustomerSyncRequest(
+        event=attio_sync_request.event,
+        event_id=attio_sync_request.event_id,
+        occurred_at=attio_sync_request.occurred_at,
+        community_id=attio_sync_request.community_id,
+        community_name=attio_sync_request.community_name,
+        previous_status=payload.status.old,
+        member_status=attio_sync_request.member_status,
+        person=attio_sync_request.person,
+        company=attio_sync_request.company,
+        question_answers=attio_sync_request.question_answers,
+        keyai_questions=attio_sync_request.keyai_questions,
     )
 
 
@@ -344,6 +386,15 @@ def dispatch_keyai_member_tasks(payload: BaseMemberWebhookPayload) -> None:
                 )
                 return
             mark_keyai_event_attio_done(payload.eventId)
+
+        if not processing_state.firestore_customer_done:
+            if not dispatch_keyai_firestore_customer_sync(payload):
+                mark_keyai_event_failed(
+                    event_id=payload.eventId,
+                    error_message="firestore_customer_sync_failed",
+                )
+                return
+            mark_keyai_event_firestore_customer_done(payload.eventId)
 
         if not processing_state.whatsapp_done:
             if not dispatch_keyai_whatsapp_message(payload):
@@ -391,7 +442,17 @@ def dispatch_keyai_attio_sync(payload: BaseMemberWebhookPayload) -> bool:
         if payload.event == MemberWebhookEvent.MEMBER_JOINED:
             result = sync_attio_member(sync_request)
         else:
-            result = sync_attio_lifecycle_only(sync_request)
+            try:
+                result = sync_attio_lifecycle_only(sync_request)
+            except AttioPersonRecordNotFoundError:
+                logger.info(
+                    "Attio person missing for lifecycle event; falling back to member sync: event=%s member_id=%s event_id=%s community_id=%s",
+                    payload.event,
+                    payload.member.id,
+                    payload.eventId,
+                    payload.community.id,
+                )
+                result = sync_attio_member(sync_request)
     except Exception as exc:
         logger.exception(
             "Attio sync failed: event=%s member_id=%s event_id=%s community_id=%s error=%s",
@@ -412,6 +473,40 @@ def dispatch_keyai_attio_sync(payload: BaseMemberWebhookPayload) -> bool:
         result.person_record_id,
         result.company_record_id or "",
         result.lifecycle_entry_id,
+    )
+    return True
+
+
+def dispatch_keyai_firestore_customer_sync(payload: BaseMemberWebhookPayload) -> bool:
+    """
+    Syncs a Key.ai lifecycle event into Firestore customer storage.
+
+    Args:
+        payload (BaseMemberWebhookPayload): Validated Key.ai webhook payload.
+    """
+    sync_request = build_keyai_customer_sync_request(payload)
+
+    try:
+        result = sync_keyai_customer(sync_request)
+    except Exception as exc:
+        logger.exception(
+            "Firestore customer sync failed: event=%s member_id=%s event_id=%s community_id=%s error=%s",
+            payload.event,
+            payload.member.id,
+            payload.eventId,
+            payload.community.id,
+            str(exc),
+        )
+        return False
+
+    logger.info(
+        "Firestore customer sync completed: event=%s member_id=%s event_id=%s community_id=%s customer_document_id=%s event_document_id=%s",
+        payload.event,
+        payload.member.id,
+        payload.eventId,
+        payload.community.id,
+        result.customer_document_id,
+        result.event_document_id,
     )
     return True
 

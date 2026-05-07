@@ -1,4 +1,5 @@
 import logging
+import json
 from collections.abc import Mapping
 from urllib import error, parse
 
@@ -15,6 +16,12 @@ from funda_app.utils.http import request_json
 from funda_app.utils.phone import get_country_code
 
 logger = logging.getLogger(__name__)
+
+
+class AttioPersonRecordNotFoundError(ValueError):
+    """
+    Raised when a lifecycle-only Attio sync cannot find the target person record.
+    """
 
 
 def sync_attio_member(
@@ -82,7 +89,8 @@ def sync_attio_lifecycle_only(
         AttioSyncResult: IDs for the existing person and synchronized lifecycle.
 
     Raises:
-        ValueError: If the Attio member record cannot be found.
+        AttioPersonRecordNotFoundError: If the Attio member record cannot be found.
+        ValueError: If the existing Attio member record has an invalid ID.
         urllib.error.HTTPError: If the Attio API rejects the request.
         urllib.error.URLError: If the Attio API is unreachable.
     """
@@ -94,7 +102,7 @@ def sync_attio_lifecycle_only(
         settings=runtime_settings,
     )
     if person_record is None:
-        raise ValueError(
+        raise AttioPersonRecordNotFoundError(
             "Attio lifecycle sync requires an existing person record for the member"
         )
 
@@ -625,6 +633,23 @@ def _build_person_values(
                 "target_record_id": company_record_id,
             }
         ]
+
+    values.update(_build_question_answer_values(sync_request))
+    return values
+
+
+def _build_question_answer_values(
+    sync_request: AttioLifecycleSyncRequest,
+) -> dict[str, object]:
+    values: dict[str, object] = {}
+    for key, answer in sync_request.question_answers.items():
+        values[key] = answer
+
+    if sync_request.keyai_questions:
+        values["keyai_questions"] = json.dumps(
+            sync_request.keyai_questions,
+            separators=(",", ":"),
+        )
 
     return values
 

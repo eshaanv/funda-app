@@ -1,18 +1,45 @@
 # Member Webhooks v2 – Asks for KeyAI
 
-## Stable question identifiers
+## Question answer persistence
 
-For `member.joined` payloads, we currently match answers by substring-matching the **question text** (e.g. "company name", "linked", "funding stage"). That breaks if question wording changes.
+Funda stores all `questions[]` answers from `member.joined` payloads using
+canonical snake_case field names. Semantic keys are matched first. If a known
+semantic key is not present, Funda falls back to question type plus keyword
+matching.
 
-**Ask:** For each item in `questions[]`, include a stable `key` (or `id`) so we can look up answers by key instead of question text.
+The same canonical names are used internally, in Firestore, and as Attio
+attribute slugs. Attio sync fails if the matching Attio attributes are missing,
+so new canonical fields must be created in Attio before enabling the webhook
+flow in an environment.
 
-Example:
+Current canonical answer fields:
 
-```json
-"questions": [
-  { "key": "company_name", "question": "What's your company name?", "answer": "Acme" },
-  { "key": "linkedin_url", "question": "LinkedIn profile URL", "answer": "https://linkedin.com/in/..." }
-]
-```
+- `company_website`
+- `job_title`
+- `company_name`
+- `company_stage`
+- `whatsapp_phone_number`
+- `member_type`
+- `linkedin_url`
+- `country_region`
+- `full_name`
+- `industry_sector`
+- `investor_stage`
+- `exclusive_benefits_discounts`
+- `fund_website`
+- `advising_mentoring_founders`
+- `fractional_board_roles`
+- `organization_firm_name`
+- `organization_website_domain`
+- `companies_work_with_stage`
+- `services_value_offered`
+- `keyai_questions`
 
-Suggested keys for the current application questions: `company_name`, `linkedin_url`, `funding_stage`, `job_title`, `company_website_domain`, `whatsapp_phone_number` (or equivalent). We can align on exact key names.
+Firestore stores these canonical answer fields on the latest customer document,
+stores them under `question_answers`, and stores the original question records
+under `keyai_questions`.
+
+Attio stores canonical answers directly on the person record using the same
+attribute slugs. `keyai_questions` is stored as compact JSON so the original
+question text, semantic key, type, raw answer, normalized answer, and canonical
+key are preserved.

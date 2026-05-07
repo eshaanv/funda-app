@@ -4,6 +4,7 @@ from pydantic import ValidationError
 from uuid import uuid4
 
 from funda_app.schemas.crm import AttioMemberContext
+from funda_app.schemas.customers import KeyAICustomerSyncRequest
 from funda_app.api import webhooks as webhooks_api
 from funda_app.schemas.idempotency import KeyAIEventProcessingState
 from funda_app.schemas.whatsapp import WhatsAppDispatchResult, WhatsAppTemplateName
@@ -324,6 +325,24 @@ def test_service_builds_attio_sync_request_from_joined_questions() -> None:
     assert sync_request.company.stage == "Seed"
     assert sync_request.company.company_website == "https://acme.ai"
     assert sync_request.person.job_title is None
+
+
+def test_service_builds_customer_sync_request_from_attio_sync_request() -> None:
+    payload = MemberJoinedWebhookPayload.model_validate(_build_joined_payload())
+
+    sync_request = keyai_webhooks.build_keyai_customer_sync_request(payload=payload)
+
+    assert sync_request.event == MemberWebhookEvent.MEMBER_JOINED
+    assert sync_request.event_id == payload.eventId
+    assert sync_request.previous_status is None
+    assert sync_request.member_status.value == "PENDING"
+    assert sync_request.person.keyai_member_id == payload.member.id
+    assert sync_request.person.phone == "+18511152215"
+    assert sync_request.company is not None
+    assert sync_request.company.name == "Acme AI"
+    assert sync_request.question_answers["company_name"] == "Acme AI"
+    assert sync_request.question_answers["company_website"] == "https://acme.ai"
+    assert sync_request.keyai_questions[0]["canonical_key"] == "first_name"
 
 
 def test_service_builds_attio_sync_request_with_job_title() -> None:
@@ -954,6 +973,113 @@ def test_service_dispatches_non_joined_event_to_lifecycle_only_attio_sync(
     assert sync_request.company.name == "Attio Company"
 
 
+def test_service_falls_back_to_member_attio_sync_when_lifecycle_person_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    order: list[str] = []
+    captured: dict[str, object] = {}
+
+    def fake_lifecycle_sync(sync_request):
+        order.append("lifecycle")
+        raise keyai_webhooks.AttioPersonRecordNotFoundError("missing person")
+
+    def fake_member_sync(sync_request):
+        order.append("member")
+        captured["sync_request"] = sync_request
+        return type(
+            "FakeAttioResult",
+            (),
+            {
+                "person_record_id": "person-123",
+                "company_record_id": None,
+                "lifecycle_entry_id": "entry-123",
+            },
+        )()
+
+    monkeypatch.setattr(
+        keyai_webhooks, "sync_attio_lifecycle_only", fake_lifecycle_sync
+    )
+    monkeypatch.setattr(keyai_webhooks, "sync_attio_member", fake_member_sync)
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "get_member_context_for_member",
+        lambda member_id, settings=None: None,
+    )
+
+    result = keyai_webhooks.dispatch_keyai_attio_sync(
+        payload=MemberApprovedWebhookPayload.model_validate(_build_approved_payload()),
+    )
+
+    sync_request = captured["sync_request"]
+    assert result is True
+    assert order == ["lifecycle", "member"]
+    assert sync_request.event == MemberWebhookEvent.MEMBER_APPROVED
+    assert sync_request.person.keyai_member_id == "user-456"
+    assert sync_request.person.email == "rohan+1@key.ai"
+    assert sync_request.member_status.value == "APPROVED"
+
+
+def test_service_does_not_fall_back_for_non_missing_lifecycle_attio_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    order: list[str] = []
+
+    def fake_lifecycle_sync(sync_request):
+        order.append("lifecycle")
+        raise ValueError("invalid existing person record")
+
+    monkeypatch.setattr(
+        keyai_webhooks, "sync_attio_lifecycle_only", fake_lifecycle_sync
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "sync_attio_member",
+        lambda sync_request: order.append("member"),
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "get_member_context_for_member",
+        lambda member_id, settings=None: None,
+    )
+
+    result = keyai_webhooks.dispatch_keyai_attio_sync(
+        payload=MemberApprovedWebhookPayload.model_validate(_build_approved_payload()),
+    )
+
+    assert result is False
+    assert order == ["lifecycle"]
+
+
+def test_service_dispatches_member_event_to_firestore_customer_sync(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, KeyAICustomerSyncRequest] = {}
+
+    def fake_sync(sync_request):
+        captured["sync_request"] = sync_request
+        return type(
+            "FakeCustomerResult",
+            (),
+            {
+                "customer_document_id": "member-123",
+                "event_document_id": "event-123",
+            },
+        )()
+
+    monkeypatch.setattr(keyai_webhooks, "sync_keyai_customer", fake_sync)
+
+    keyai_webhooks.dispatch_keyai_firestore_customer_sync(
+        payload=MemberJoinedWebhookPayload.model_validate(_build_joined_payload()),
+    )
+
+    sync_request = captured["sync_request"]
+
+    assert sync_request.person.keyai_member_id == "14b8d602-1eee-11f1-b904-0242ac14000a"
+    assert sync_request.previous_status is None
+    assert sync_request.company is not None
+    assert sync_request.company.name == "Acme AI"
+
+
 def test_service_skips_already_claimed_member_event(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1003,6 +1129,11 @@ def test_service_processes_member_event_when_claimed(
     )
     monkeypatch.setattr(
         keyai_webhooks,
+        "dispatch_keyai_firestore_customer_sync",
+        lambda p: order.append("firestore") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
         "dispatch_keyai_whatsapp_message",
         lambda p: order.append("whatsapp") or True,
     )
@@ -1010,6 +1141,11 @@ def test_service_processes_member_event_when_claimed(
         keyai_webhooks,
         "mark_keyai_event_attio_done",
         lambda event_id: order.append("mark_attio"),
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_firestore_customer_done",
+        lambda event_id: order.append("mark_firestore"),
     )
     monkeypatch.setattr(
         keyai_webhooks,
@@ -1037,6 +1173,8 @@ def test_service_processes_member_event_when_claimed(
     assert order == [
         "crm",
         "mark_attio",
+        "firestore",
+        "mark_firestore",
         "whatsapp",
         "mark_whatsapp",
         "mark_completed",
@@ -1063,6 +1201,11 @@ def test_service_processes_approved_member_event_with_admin_notification(
     )
     monkeypatch.setattr(
         keyai_webhooks,
+        "dispatch_keyai_firestore_customer_sync",
+        lambda p: order.append("firestore") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
         "dispatch_keyai_whatsapp_message",
         lambda p: order.append("whatsapp") or True,
     )
@@ -1075,6 +1218,11 @@ def test_service_processes_approved_member_event_with_admin_notification(
         keyai_webhooks,
         "mark_keyai_event_attio_done",
         lambda event_id: order.append("mark_attio"),
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_firestore_customer_done",
+        lambda event_id: order.append("mark_firestore"),
     )
     monkeypatch.setattr(
         keyai_webhooks,
@@ -1097,6 +1245,8 @@ def test_service_processes_approved_member_event_with_admin_notification(
     assert order == [
         "crm",
         "mark_attio",
+        "firestore",
+        "mark_firestore",
         "whatsapp",
         "mark_whatsapp",
         "admin",
@@ -1127,6 +1277,11 @@ def test_service_resumes_member_event_after_attio_completion(
     )
     monkeypatch.setattr(
         keyai_webhooks,
+        "dispatch_keyai_firestore_customer_sync",
+        lambda p: order.append("firestore") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
         "dispatch_keyai_whatsapp_message",
         lambda p: order.append("whatsapp") or True,
     )
@@ -1134,6 +1289,11 @@ def test_service_resumes_member_event_after_attio_completion(
         keyai_webhooks,
         "mark_keyai_event_attio_done",
         lambda event_id: order.append("mark_attio"),
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_firestore_customer_done",
+        lambda event_id: order.append("mark_firestore"),
     )
     monkeypatch.setattr(
         keyai_webhooks,
@@ -1159,6 +1319,8 @@ def test_service_resumes_member_event_after_attio_completion(
     keyai_webhooks.dispatch_keyai_member_tasks(payload)
 
     assert order == [
+        "firestore",
+        "mark_firestore",
         "whatsapp",
         "mark_whatsapp",
         "mark_completed",
@@ -1177,6 +1339,7 @@ def test_service_resumes_approved_member_event_before_admin_notification(
         lambda event_id, member_id, event_type: KeyAIEventProcessingState(
             should_process=True,
             attio_done=True,
+            firestore_customer_done=True,
             whatsapp_done=True,
             admin_notification_done=False,
         ),
@@ -1236,6 +1399,11 @@ def test_service_marks_member_event_failed_on_attio_error(
     )
     monkeypatch.setattr(
         keyai_webhooks,
+        "dispatch_keyai_firestore_customer_sync",
+        lambda p: order.append("firestore") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
         "dispatch_keyai_whatsapp_message",
         lambda p: order.append("whatsapp") or True,
     )
@@ -1250,6 +1418,50 @@ def test_service_marks_member_event_failed_on_attio_error(
     assert order == ["attio_sync_failed"]
 
 
+def test_service_marks_member_event_failed_on_firestore_customer_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    order: list[str] = []
+    payload = MemberJoinedWebhookPayload.model_validate(_build_joined_payload())
+
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "begin_keyai_event_processing",
+        lambda event_id, member_id, event_type: KeyAIEventProcessingState(
+            should_process=True,
+        ),
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "dispatch_keyai_attio_sync",
+        lambda p: order.append("crm") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "dispatch_keyai_firestore_customer_sync",
+        lambda p: False,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "dispatch_keyai_whatsapp_message",
+        lambda p: order.append("whatsapp") or True,
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_attio_done",
+        lambda event_id: order.append("mark_attio"),
+    )
+    monkeypatch.setattr(
+        keyai_webhooks,
+        "mark_keyai_event_failed",
+        lambda event_id, error_message: order.append(error_message),
+    )
+
+    keyai_webhooks.dispatch_keyai_member_tasks(payload)
+
+    assert order == ["crm", "mark_attio", "firestore_customer_sync_failed"]
+
+
 def test_service_marks_approved_member_event_failed_on_admin_notification_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1262,6 +1474,7 @@ def test_service_marks_approved_member_event_failed_on_admin_notification_error(
         lambda event_id, member_id, event_type: KeyAIEventProcessingState(
             should_process=True,
             attio_done=True,
+            firestore_customer_done=True,
             whatsapp_done=True,
         ),
     )
