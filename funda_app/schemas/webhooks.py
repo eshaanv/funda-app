@@ -49,7 +49,7 @@ class MemberQuestionType(StrEnum):
     COUNTRY = "country"
 
 
-QuestionAnswer: TypeAlias = str | list[str]
+QuestionAnswer: TypeAlias = str | list[str] | None
 
 
 class MemberQuestionPayload(BaseModel):
@@ -73,6 +73,9 @@ class MemberQuestionPayload(BaseModel):
             MemberQuestionType.MULTIPLE_CHOICE_SINGLE,
             MemberQuestionType.MULTIPLE_CHOICE_MULTI,
         }
+
+        if self.answer is None:
+            return self
 
         if self.type in list_types:
             if not isinstance(self.answer, list):

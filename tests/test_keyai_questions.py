@@ -210,7 +210,33 @@ def test_get_canonical_question_answers_keeps_company_and_fund_websites_separate
     assert answers["fund_website"] == "fund.example"
 
 
-def test_get_canonical_question_answers_prefers_semantic_key_over_keywords() -> None:
+def test_get_canonical_question_answers_uses_specific_question_when_semantic_key_reused() -> (
+    None
+):
+    questions = [
+        MemberQuestionPayload(
+            question="Organization Website Domain",
+            answer="organization.example",
+            type="short_text",
+            semantic_key="company_website_domain",
+        ),
+        MemberQuestionPayload(
+            question="Company Website Domain",
+            answer="company.example",
+            type="short_text",
+            semantic_key="company_website_domain",
+        ),
+    ]
+
+    answers = get_canonical_question_answers(questions)
+
+    assert answers["organization_website_domain"] == "organization.example"
+    assert answers["company_website"] == "company.example"
+
+
+def test_get_canonical_question_answers_uses_semantic_key_when_no_known_keywords() -> (
+    None
+):
     questions = [
         MemberQuestionPayload(
             question="Random prompt",
@@ -219,16 +245,37 @@ def test_get_canonical_question_answers_prefers_semantic_key_over_keywords() -> 
             semantic_key="company_name",
         ),
         MemberQuestionPayload(
-            question="Company Name?",
-            answer="Keyword Company",
+            question="Another random prompt",
+            answer="Second Company",
             type="short_text",
-            semantic_key="unknown_company_name",
+            semantic_key="company_name",
         ),
     ]
 
     answers = get_canonical_question_answers(questions)
 
-    assert answers["company_name"] == "Canonical Company"
+    assert answers["company_name"] == "Canonical Company\nSecond Company"
+
+
+def test_get_canonical_question_answers_skips_null_answers() -> None:
+    questions = [
+        MemberQuestionPayload(
+            question="Funding Stage?",
+            answer=None,
+            type="multiple_choice_single",
+            semantic_key="funding_stage",
+        ),
+        MemberQuestionPayload(
+            question="Company Stage / Size",
+            answer="100",
+            type="short_text",
+            semantic_key="company_stage_size",
+        ),
+    ]
+
+    answers = get_canonical_question_answers(questions)
+
+    assert answers["company_stage"] == "100"
 
 
 def test_get_keyai_question_records_preserves_raw_questions_with_canonical_keys() -> (

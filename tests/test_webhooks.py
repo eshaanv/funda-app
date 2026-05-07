@@ -1503,6 +1503,72 @@ def test_joined_webhook_model_allows_missing_questions() -> None:
     assert webhook_payload.questions is None
 
 
+def test_joined_webhook_model_accepts_pending_joined_event_with_null_answers() -> None:
+    payload = {
+        "event": "member.joined",
+        "member": {
+            "id": "89c70b7c-4a26-11f1-ad11-0242ac14000a",
+            "email": "lovetyagi+3april@key.ai",
+            "phone": "",
+            "fullName": "Ronak Jain",
+            "lastName": "Jain",
+            "firstName": "Ronak",
+            "linkedinUrl": "https://www.linkedin.com/in/ronakofficial",
+        },
+        "status": {"new": "PENDING", "old": None},
+        "eventId": "ef08f80a-09b8-4010-a85a-5c05b7366764",
+        "version": 1,
+        "community": {
+            "id": "b382558c-1ebd-11f1-b36c-0242ac14000a",
+            "name": "funda",
+        },
+        "questions": [
+            {
+                "semantic_key": "job_title",
+                "question": "Job Title?",
+                "type": "short_text",
+                "answer": None,
+            },
+            {
+                "semantic_key": "funding_stage",
+                "question": "Funding Stage?",
+                "type": "multiple_choice_single",
+                "answer": None,
+            },
+            {
+                "semantic_key": "company_website_domain",
+                "question": "Organization Website Domain",
+                "type": "short_text",
+                "answer": "https://app-dev.bprnt.com/settings/profile",
+            },
+            {
+                "semantic_key": "company_stage_size",
+                "question": "Company Stage / Size",
+                "type": "short_text",
+                "answer": "100",
+            },
+        ],
+        "occurredAt": "2026-05-07T15:08:00.673Z",
+    }
+
+    webhook_payload = MemberJoinedWebhookPayload.model_validate(payload)
+    sync_request = keyai_webhooks.build_keyai_attio_sync_request(webhook_payload)
+
+    assert webhook_payload.status.new.value == "PENDING"
+    assert sync_request.question_answers["organization_website_domain"] == (
+        "https://app-dev.bprnt.com/settings/profile"
+    )
+    assert sync_request.question_answers["company_stage"] == "100"
+
+
+def test_joined_webhook_model_rejects_approved_joined_event() -> None:
+    payload = _build_joined_payload()
+    payload["status"] = {"new": "APPROVED", "old": None}
+
+    with pytest.raises(ValidationError):
+        MemberJoinedWebhookPayload.model_validate(payload)
+
+
 def test_approved_webhook_model_rejects_invalid_status_transition() -> None:
     payload = _build_approved_payload()
     payload["status"] = {"old": "APPROVED", "new": "APPROVED"}
