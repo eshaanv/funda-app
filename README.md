@@ -12,13 +12,15 @@ export WHATSAPP_PHONE_NUMBER_ID=your-phone-number-id
 export NEW_MEMBER_ADMIN_PHONE=15551234567
 export ATTIO_API_KEY_DEV=your-dev-attio-api-key
 export ATTIO_FOUNDER_LIFECYCLE_LIST_ID_DEV=your-dev-attio-list-id
+export GOOGLE_CLOUD_PROJECT=your-firestore-project-id
 uv run uvicorn funda_app.main:app --reload
 ```
 
 The current webhook flow does not require Google Cloud application default
-credentials because the joined-member Gemini enrichment step is disabled.
-Firestore idempotency now does require Google Cloud credentials and a project
-when you want to exercise the real background flow locally.
+credentials for Gemini because the joined-member Gemini enrichment step is
+disabled. Firestore idempotency and customer persistence require Google Cloud
+credentials and a project when you want to exercise the real background flow
+locally.
 
 ## Validate
 
@@ -96,6 +98,7 @@ test. It posts a unique `member.approved` event and then polls Firestore until
 the event record shows:
 
 - `attio_done = true`
+- `firestore_customer_done = true`
 - `whatsapp_done = true`
 - `admin_notification_done = true`
 - `status = completed`
@@ -255,22 +258,25 @@ commit. Once the merge lands on `main`, `deploy-prod` runs against the
 The Key.ai webhook endpoint accepts typed member event payloads, routes all
 member events through the payload's `event` field, and returns `202 Accepted`.
 Every member event now queues an Attio CRM sync in the background. For
-`member.joined`, `member.approved`, and `member.rejected`, the background flow
-also sends a WhatsApp template after the CRM sync completes.
+every event, the background flow also writes customer state and event history
+to Firestore after Attio succeeds. For `member.joined`, `member.approved`, and
+`member.rejected`, the background flow then sends a WhatsApp template.
 
 ## Joined member background flow
 
-`member.joined` currently runs the signup WhatsApp flow after the Attio sync.
+`member.joined` currently runs the signup WhatsApp flow after Attio and
+Firestore customer syncs both complete.
 
 - Funda immediately returns `202 Accepted` and runs the rest in a background task.
 - The Attio sync mirrors the member into the `Funda Founder Lifecycle` list.
+- Firestore stores the latest customer document and event history.
 - The joined-member Gemini enrichment step is currently disabled in the webhook
   path.
 - The WhatsApp send uses the `funda_signup_confirmation` template.
 
-`member.approved` and `member.rejected` also send WhatsApp after the Attio
-sync. `member.removed` and `member.left` currently stop after the background
-Attio sync.
+`member.approved` and `member.rejected` also send WhatsApp after Attio and
+Firestore complete. `member.removed` and `member.left` stop after the required
+Attio and Firestore syncs.
 
 ## Attio CRM sync
 
@@ -281,6 +287,9 @@ Every Key.ai member event now mirrors into Attio.
 - Company name, company stage, and LinkedIn URL use top-level member fields
   first, then fall back to joined-question answers when available.
 - Lifecycle state is written to the `Funda Founder Lifecycle` Attio list.
+- All Key.ai question answers are also written to the Attio person record using
+  canonical snake_case attribute slugs. The full original question payload is
+  written to the `keyai_questions` Attio attribute as JSON.
 
 The Attio sync expects these environment variables:
 
@@ -294,12 +303,36 @@ The Attio sync expects these environment variables:
 
 The app only syncs records into an existing Attio setup. It does not create or
 manage Attio lists or attributes programmatically. Configure the required Attio
-list and fields in Attio before running the webhook flow.
+list and fields in Attio before running the webhook flow, including the
+canonical question answer attributes documented in
+[`docs/member-webhooks-v2-asks.md`](docs/member-webhooks-v2-asks.md).
 
 The older `make attio-founder-lifecycle-attributes`,
 `make attio-people-attributes`, and `make attio-company-attributes` helpers
 still exist for direct low-level inspection, and they now follow `APP_ENV`
 too.
+
+## Firestore customer sync
+
+Every Key.ai member event must persist successfully to Firestore after Attio
+sync succeeds. If either Attio or Firestore customer sync fails, the background
+event is marked failed and later WhatsApp/admin notification steps do not run.
+
+Firestore writes:
+
+- Latest state: `keyai_customers/{member_id}`
+- Event history: `keyai_customers/{member_id}/events/{event_id}`
+
+The latest customer document stores normalized member profile fields, company
+fields, all canonical question answer fields, `question_answers`,
+`keyai_questions`, community fields, current status, latest event metadata, and
+lifecycle timestamps such as `joined_at`, `approved_at`, `rejected_at`,
+`removed_at`, and `left_at`. Non-joined events update status and lifecycle
+metadata while preserving existing profile/company/question fields when the
+event does not provide them.
+
+The per-event history document stores the event ID, event type, status
+transition, occurred time, community, and normalized person/company snapshots.
 
 ## WhatsApp template dispatch
 

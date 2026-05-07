@@ -377,6 +377,92 @@ def test_sync_attio_lifecycle_only_posts_only_query_and_list_entry(
     ]
 
 
+def test_sync_attio_lifecycle_only_raises_missing_person_signal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_request_json(
+        method: str,
+        url: str,
+        payload: dict[str, object],
+        access_token: str,
+        timeout_seconds: float,
+        retry_attempts: int = 1,
+    ) -> dict[str, object]:
+        return {"data": []}
+
+    monkeypatch.setattr(attio, "request_json", fake_request_json)
+
+    with pytest.raises(attio.AttioPersonRecordNotFoundError):
+        attio.sync_attio_lifecycle_only(
+            sync_request=AttioLifecycleSyncRequest(
+                event=MemberWebhookEvent.MEMBER_APPROVED,
+                event_id="event-123",
+                occurred_at=datetime(2026, 3, 14, 16, 26, 12, tzinfo=UTC),
+                community_id="community-123",
+                community_name="funda",
+                member_status=MemberStatus.APPROVED,
+                person=AttioPersonSyncPayload(
+                    keyai_member_id="member-123",
+                    email="eshaan@example.com",
+                    full_name="Eshaan Vipani",
+                    first_name="Eshaan",
+                    last_name="Vipani",
+                ),
+            ),
+            settings=AppSettings(
+                whatsapp_access_token="token",
+                whatsapp_phone_number_id="1029270380269800",
+                attio_api_key_dev="attio-token",
+                attio_founder_lifecycle_list_id_dev="list-123",
+            ),
+        )
+
+
+def test_build_person_values_includes_canonical_question_answers() -> None:
+    values = attio._build_person_values(
+        sync_request=AttioLifecycleSyncRequest(
+            event=MemberWebhookEvent.MEMBER_JOINED,
+            event_id="event-123",
+            occurred_at=datetime(2026, 3, 14, 16, 26, 12, tzinfo=UTC),
+            community_id="community-123",
+            community_name="funda",
+            member_status=MemberStatus.PENDING,
+            person=AttioPersonSyncPayload(
+                keyai_member_id="member-123",
+                email="eshaan@example.com",
+                full_name="Eshaan Vipani",
+                first_name="Eshaan",
+                last_name="Vipani",
+            ),
+            question_answers={
+                "fund_website": "https://fund.example",
+                "services_value_offered": "Office hours",
+            },
+            keyai_questions=[
+                {
+                    "canonical_key": "fund_website",
+                    "semantic_key": "fund_site",
+                    "question": "Fund Website?",
+                    "type": "short_text",
+                    "answer": "https://fund.example",
+                    "normalized_answer": "https://fund.example",
+                }
+            ],
+        ),
+        company_record_id=None,
+        include_optional_fields=False,
+    )
+
+    assert values["fund_website"] == "https://fund.example"
+    assert values["services_value_offered"] == "Office hours"
+    assert values["keyai_questions"] == (
+        '[{"canonical_key":"fund_website","semantic_key":"fund_site",'
+        '"question":"Fund Website?","type":"short_text",'
+        '"answer":"https://fund.example",'
+        '"normalized_answer":"https://fund.example"}]'
+    )
+
+
 def test_sync_attio_member_asserts_company_by_domain_when_company_website_present(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

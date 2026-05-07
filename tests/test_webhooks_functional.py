@@ -1,13 +1,16 @@
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
+from typing import cast
 from uuid import uuid4
 
 import httpx
 import pytest
 from google.cloud import firestore
+from google.cloud.firestore_v1.base_document import DocumentSnapshot
 
 from funda_app.services.idempotency import KEYAI_WEBHOOK_COLLECTION
+from funda_app.services.customers import KEYAI_CUSTOMERS_COLLECTION
 
 # Base URL env vars per target. Override with env to point at different instances.
 LOCAL_WEBHOOK_BASE_URL = os.environ.get(
@@ -219,7 +222,7 @@ def _wait_for_firestore_event_document(
     deadline = time.time() + timeout_seconds
 
     while time.time() < deadline:
-        snapshot = document_ref.get()
+        snapshot = cast(DocumentSnapshot, document_ref.get())
         if snapshot.exists:
             data = snapshot.to_dict()
             if data is None:
@@ -255,6 +258,74 @@ def _wait_for_firestore_event_fields(
     pytest.fail(
         f"Timed out waiting for Firestore document {KEYAI_WEBHOOK_COLLECTION}/{event_id} "
         f"to match {expected_fields!r}"
+    )
+
+
+def _wait_for_firestore_customer_fields(
+    target: str,
+    member_id: str,
+    expected_fields: dict[str, object],
+    timeout_seconds: float = 40.0,
+) -> dict[str, object]:
+    """Polls Firestore until the customer document contains the expected fields."""
+    project_id = _firestore_project_id_for_target(target)
+    if project_id is None:
+        pytest.fail(f"Missing Firestore project ID for target {target!r}")
+
+    client = firestore.Client(project=project_id)
+    document_ref = client.collection(KEYAI_CUSTOMERS_COLLECTION).document(member_id)
+    deadline = time.time() + timeout_seconds
+
+    while time.time() < deadline:
+        snapshot = cast(DocumentSnapshot, document_ref.get())
+        if snapshot.exists:
+            data = snapshot.to_dict()
+            if data is None:
+                pytest.fail(f"Firestore customer {member_id!r} exists but has no data")
+            if all(data.get(key) == value for key, value in expected_fields.items()):
+                return data
+        time.sleep(0.5)
+
+    pytest.fail(
+        f"Timed out waiting for Firestore document {KEYAI_CUSTOMERS_COLLECTION}/{member_id} "
+        f"to match {expected_fields!r}"
+    )
+
+
+def _wait_for_firestore_customer_event_document(
+    target: str,
+    member_id: str,
+    event_id: str,
+    timeout_seconds: float = 40.0,
+) -> dict[str, object]:
+    """Polls Firestore until the customer event-history document appears."""
+    project_id = _firestore_project_id_for_target(target)
+    if project_id is None:
+        pytest.fail(f"Missing Firestore project ID for target {target!r}")
+
+    client = firestore.Client(project=project_id)
+    document_ref = (
+        client.collection(KEYAI_CUSTOMERS_COLLECTION)
+        .document(member_id)
+        .collection("events")
+        .document(event_id)
+    )
+    deadline = time.time() + timeout_seconds
+
+    while time.time() < deadline:
+        snapshot = cast(DocumentSnapshot, document_ref.get())
+        if snapshot.exists:
+            data = snapshot.to_dict()
+            if data is None:
+                pytest.fail(
+                    f"Firestore customer event {event_id!r} exists but has no data"
+                )
+            return data
+        time.sleep(0.5)
+
+    pytest.fail(
+        f"Timed out waiting for Firestore document "
+        f"{KEYAI_CUSTOMERS_COLLECTION}/{member_id}/events/{event_id}"
     )
 
 
@@ -456,9 +527,30 @@ def test_member_approved_webhook_completes_admin_notification(
             "event_id": event_id,
             "event_type": "member.approved",
             "attio_done": True,
+            "firestore_customer_done": True,
             "whatsapp_done": True,
             "admin_notification_done": True,
             "status": "completed",
         },
     )
     assert document["member_id"] == "14b8d602-1eee-11f1-b904-0242ac14000a"
+
+    customer = _wait_for_firestore_customer_fields(
+        target=target,
+        member_id="14b8d602-1eee-11f1-b904-0242ac14000a",
+        expected_fields={
+            "member_id": "14b8d602-1eee-11f1-b904-0242ac14000a",
+            "member_status": "APPROVED",
+            "latest_event": "member.approved",
+            "latest_event_id": event_id,
+        },
+    )
+    assert customer["community_name"] == "funda"
+
+    customer_event = _wait_for_firestore_customer_event_document(
+        target=target,
+        member_id="14b8d602-1eee-11f1-b904-0242ac14000a",
+        event_id=event_id,
+    )
+    assert customer_event["event_type"] == "member.approved"
+    assert customer_event["new_status"] == "APPROVED"

@@ -81,6 +81,7 @@ def _begin_keyai_event_processing(
                 "event_type": event_type,
                 "status": "processing",
                 "attio_done": False,
+                "firestore_customer_done": False,
                 "whatsapp_done": False,
                 "admin_notification_done": False,
                 "updated_at": now,
@@ -93,6 +94,7 @@ def _begin_keyai_event_processing(
         return KeyAIEventProcessingState(
             should_process=False,
             attio_done=record.attio_done,
+            firestore_customer_done=record.firestore_customer_done,
             whatsapp_done=record.whatsapp_done,
             admin_notification_done=record.admin_notification_done,
         )
@@ -101,6 +103,7 @@ def _begin_keyai_event_processing(
         return KeyAIEventProcessingState(
             should_process=False,
             attio_done=record.attio_done,
+            firestore_customer_done=record.firestore_customer_done,
             whatsapp_done=record.whatsapp_done,
             admin_notification_done=record.admin_notification_done,
         )
@@ -115,6 +118,7 @@ def _begin_keyai_event_processing(
     return KeyAIEventProcessingState(
         should_process=True,
         attio_done=record.attio_done,
+        firestore_customer_done=record.firestore_customer_done,
         whatsapp_done=record.whatsapp_done,
         admin_notification_done=record.admin_notification_done,
     )
@@ -147,6 +151,22 @@ def mark_keyai_event_whatsapp_done(event_id: str) -> None:
         event_id=event_id,
         data={
             "whatsapp_done": True,
+            "updated_at": datetime.now(UTC),
+        },
+    )
+
+
+def mark_keyai_event_firestore_customer_done(event_id: str) -> None:
+    """
+    Marks Firestore customer sync as completed for a Key.ai webhook event.
+
+    Args:
+        event_id (str): Unique Key.ai webhook event ID.
+    """
+    _update_keyai_event(
+        event_id=event_id,
+        data={
+            "firestore_customer_done": True,
             "updated_at": datetime.now(UTC),
         },
     )
