@@ -437,6 +437,7 @@ def test_build_person_values_includes_canonical_question_answers() -> None:
             question_answers={
                 "fund_website": "https://fund.example",
                 "services_value_offered": "Office hours",
+                "47c62252_4bbb_40c3_bb78_3b41ba7976ca": "Prefer not to say",
             },
             keyai_questions=[
                 {
@@ -446,7 +447,15 @@ def test_build_person_values_includes_canonical_question_answers() -> None:
                     "type": "short_text",
                     "answer": "https://fund.example",
                     "normalized_answer": "https://fund.example",
-                }
+                },
+                {
+                    "canonical_key": "47c62252_4bbb_40c3_bb78_3b41ba7976ca",
+                    "semantic_key": "47c62252-4bbb-40c3-bb78-3b41ba7976ca",
+                    "question": "Total AUM",
+                    "type": "short_text",
+                    "answer": "Prefer not to say",
+                    "normalized_answer": "Prefer not to say",
+                },
             ],
         ),
         company_record_id=None,
@@ -455,11 +464,16 @@ def test_build_person_values_includes_canonical_question_answers() -> None:
 
     assert values["fund_website"] == "https://fund.example"
     assert values["services_value_offered"] == "Office hours"
+    assert "47c62252_4bbb_40c3_bb78_3b41ba7976ca" not in values
     assert values["keyai_questions"] == (
         '[{"canonical_key":"fund_website","semantic_key":"fund_site",'
         '"question":"Fund Website?","type":"short_text",'
         '"answer":"https://fund.example",'
-        '"normalized_answer":"https://fund.example"}]'
+        '"normalized_answer":"https://fund.example"},'
+        '{"canonical_key":"47c62252_4bbb_40c3_bb78_3b41ba7976ca",'
+        '"semantic_key":"47c62252-4bbb-40c3-bb78-3b41ba7976ca",'
+        '"question":"Total AUM","type":"short_text",'
+        '"answer":"Prefer not to say","normalized_answer":"Prefer not to say"}]'
     )
 
 

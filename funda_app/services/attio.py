@@ -11,11 +11,16 @@ from funda_app.schemas.crm import (
     AttioSyncResult,
 )
 from funda_app.app_settings import AppSettings, get_app_settings
+from funda_app.services.keyai_questions import KeyaiQuestionField
 from funda_app.utils.domain import normalize_domain
 from funda_app.utils.http import request_json
 from funda_app.utils.phone import get_country_code
 
 logger = logging.getLogger(__name__)
+
+ATTIO_QUESTION_ANSWER_ATTRIBUTES = frozenset(
+    field.value for field in KeyaiQuestionField
+)
 
 
 class AttioPersonRecordNotFoundError(ValueError):
@@ -643,7 +648,8 @@ def _build_question_answer_values(
 ) -> dict[str, object]:
     values: dict[str, object] = {}
     for key, answer in sync_request.question_answers.items():
-        values[key] = answer
+        if key in ATTIO_QUESTION_ANSWER_ATTRIBUTES:
+            values[key] = answer
 
     if sync_request.keyai_questions:
         values["keyai_questions"] = json.dumps(
